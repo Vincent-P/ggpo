@@ -8,8 +8,6 @@ set(GGPO_LIB_INC_NOFILTER
 	"lib/ggpo/sync.h"
 	"lib/ggpo/timesync.h"
 	"lib/ggpo/types.h"
-	"lib/ggpo/zconf.h"
-	"lib/ggpo/zlib.h"
 )
 
 set(GGPO_LIB_SRC_NOFILTER
