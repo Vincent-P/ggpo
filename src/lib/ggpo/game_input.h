@@ -1,3 +1,19 @@
+/**
+ * Copyright (C) 2025 Vincent Parizet
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation, either version 3 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program. If not, see
+ * <https://www.gnu.org/licenses/>.
+**/
 /* -----------------------------------------------------------------------
  * GGPO.net (http://ggpo.net)  -  Copyright 2009 GroundStorm Studios, LLC.
  *
@@ -25,8 +41,6 @@ struct GameInput {
    int      size; /* size in bytes of the entire input for all players */
    char     bits[GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS];
 
-   bool is_null() { return frame == NullFrame; }
-   void init(int frame, char *bits, int size, int offset);
    void init(int frame, char *bits, int size);
    bool value(int i) const { return (bits[i/8] & (1 << (i%8))) != 0; }
    void set(int i) { bits[i/8] |= (1 << (i%8)); }
