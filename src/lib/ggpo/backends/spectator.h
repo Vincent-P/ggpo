@@ -32,13 +32,11 @@
 
 #define SPECTATOR_FRAME_BUFFER_SIZE    64
 
-class SpectatorBackend : public GGPOSession, Udp::Callbacks {
+class SpectatorBackend : public GGPOSession {
 public:
    SpectatorBackend(GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size, char *hostip, u_short hostport);
    virtual ~SpectatorBackend();
 
-
-public:
    virtual GGPOErrorCode DoPoll(int timeout);
    virtual GGPOErrorCode AddPlayer(GGPOPlayer *player, GGPOPlayerHandle *handle) { return GGPO_ERRORCODE_UNSUPPORTED; }
    virtual GGPOErrorCode AddLocalInput(GGPOPlayerHandle player, void *values, int size) { return GGPO_OK; }
@@ -50,16 +48,11 @@ public:
    virtual GGPOErrorCode SetDisconnectTimeout(int timeout) { return GGPO_ERRORCODE_UNSUPPORTED; }
    virtual GGPOErrorCode SetDisconnectNotifyStart(int timeout) { return GGPO_ERRORCODE_UNSUPPORTED; }
 
-public:
-   virtual void OnMsg(sockaddr_in &from, UdpMsg *msg, int len);
-
-protected:
    void PollUdpProtocolEvents(void);
    void CheckInitialSync(void);
 
    void OnUdpProtocolEvent(UdpProtocol::Event &e);
 
-protected:
    GGPOSessionCallbacks  _callbacks;
    Udp                   _udp;
    UdpProtocol           _host;

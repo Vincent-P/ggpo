@@ -26,67 +26,64 @@
 #include "log.h"
 
 
-void
-GameInput::init(int iframe, char *ibits, int isize)
+void gameinput_init(GameInput* input, int iframe, char* ibits, int isize)
 {
-   ASSERT(isize);
-   ASSERT(isize <= GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS);
-   frame = iframe;
-   size = isize;
-   memset(bits, 0, sizeof(bits));
-   if (ibits) {
-      memcpy(bits, ibits, isize);
-   }
+	ASSERT(isize);
+	ASSERT(isize <= GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS);
+	input->frame = iframe;
+	input->size = isize;
+	memset(input->bits, 0, sizeof(input->bits));
+	if (ibits) {
+		memcpy(input->bits, ibits, isize);
+	}
 }
 
-void
-GameInput::desc(char *buf, size_t buf_size, bool show_frame) const
+void gameinput_desc(GameInput const* input, char* buf, size_t buf_size, bool show_frame) 
 {
-   ASSERT(size);
-   size_t remaining = buf_size;
-   if (show_frame) {
-      remaining -= sprintf_s(buf, buf_size, "(frame:%d size:%d ", frame, size);
-   } else {
-      remaining -= sprintf_s(buf, buf_size, "(size:%d ", size);
-   }
+	ASSERT(input->size);
+	size_t remaining = buf_size;
+	if (show_frame) {
+		remaining -= sprintf_s(buf, buf_size, "(frame:%d size:%d ", input->frame, input->size);
+	}
+	else {
+		remaining -= sprintf_s(buf, buf_size, "(size:%d ", input->size);
+	}
 
-   for (int i = 0; i < size * 8; i++) {
-      char buf2[16];
-      if (value(i)) {
-         int c = sprintf_s(buf2, ARRAY_SIZE(buf2), "%2d ", i);
-         strncat_s(buf, remaining, buf2, ARRAY_SIZE(buf2));
-         remaining -= c;
-      }
-   }
-   strncat_s(buf, remaining, ")", 1);
+	for (int i = 0; i < input->size * 8; i++) {
+		char buf2[16];
+		if (gameinput_value(input, i)) {
+			int c = sprintf_s(buf2, ARRAY_SIZE(buf2), "%2d ", i);
+			strncat_s(buf, remaining, buf2, ARRAY_SIZE(buf2));
+			remaining -= c;
+		}
+	}
+	strncat_s(buf, remaining, ")", 1);
 }
 
-void
-GameInput::log(char *prefix, bool show_frame) const
+void gameinput_log(GameInput const* input, char* prefix, bool show_frame) 
 {
 	char buf[1024];
-   size_t c = strlen(prefix);
+	size_t c = strlen(prefix);
 	strcpy_s(buf, prefix);
-	desc(buf + c, ARRAY_SIZE(buf) - c, show_frame);
-   strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "\n", 1);
+	gameinput_desc(input, buf + c, ARRAY_SIZE(buf) - c, show_frame);
+	strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "\n", 1);
 	Log(buf);
 }
 
-bool
-GameInput::equal(GameInput &other, bool bitsonly)
+bool gameinput_equal(GameInput const* input, GameInput const* other, bool bitsonly) 
 {
-   if (!bitsonly && frame != other.frame) {
-      Log("frames don't match: %d, %d\n", frame, other.frame);
-   }
-   if (size != other.size) {
-      Log("sizes don't match: %d, %d\n", size, other.size);
-   }
-   if (memcmp(bits, other.bits, size)) {
-      Log("bits don't match\n");
-   }
-   ASSERT(size && other.size);
-   return (bitsonly || frame == other.frame) &&
-          size == other.size &&
-          memcmp(bits, other.bits, size) == 0;
+	if (!bitsonly && input->frame != other->frame) {
+		Log("frames don't match: %d, %d\n", input->frame, other->frame);
+	}
+	if (input->size != other->size) {
+		Log("sizes don't match: %d, %d\n", input->size, other->size);
+	}
+	if (memcmp(input->bits, other->bits, input->size)) {
+		Log("bits don't match\n");
+	}
+	ASSERT(input->size && other->size);
+	return (bitsonly || input->frame == other->frame) &&
+		input->size == other->size &&
+		memcmp(input->bits, other->bits, input->size) == 0;
 }
 

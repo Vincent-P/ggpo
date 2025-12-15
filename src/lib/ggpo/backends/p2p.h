@@ -30,13 +30,11 @@
 #include "timesync.h"
 #include "network/udp_proto.h"
 
-class Peer2PeerBackend : public GGPOSession, Udp::Callbacks {
+class Peer2PeerBackend : public GGPOSession {
 public:
    Peer2PeerBackend(GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size);
    virtual ~Peer2PeerBackend();
 
-
-public:
    virtual GGPOErrorCode DoPoll(int timeout);
    virtual GGPOErrorCode AddPlayer(GGPOPlayer *player, GGPOPlayerHandle *handle);
    virtual GGPOErrorCode AddLocalInput(GGPOPlayerHandle player, void *values, int size);
@@ -48,10 +46,6 @@ public:
    virtual GGPOErrorCode SetDisconnectTimeout(int timeout);
    virtual GGPOErrorCode SetDisconnectNotifyStart(int timeout);
 
-public:
-   virtual void OnMsg(sockaddr_in &from, UdpMsg *msg, int len);
-
-protected:
    GGPOErrorCode PlayerHandleToQueue(GGPOPlayerHandle player, int *queue);
    GGPOPlayerHandle QueueToPlayerHandle(int queue) { return (GGPOPlayerHandle)(queue + 1); }
    GGPOPlayerHandle QueueToSpectatorHandle(int queue) { return (GGPOPlayerHandle)(queue + 1000); } /* out of range of the player array, basically */
@@ -68,7 +62,6 @@ protected:
    virtual void OnUdpProtocolPeerEvent(UdpProtocol::Event &e, int queue);
    virtual void OnUdpProtocolSpectatorEvent(UdpProtocol::Event &e, int queue);
 
-protected:
    GGPOSessionCallbacks  _callbacks;
    Sync                  _sync;
    Udp                   _udp;

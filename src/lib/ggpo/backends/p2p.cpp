@@ -1,3 +1,19 @@
+/**
+ * Copyright (C) 2025 Vincent Parizet
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation, either version 3 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program. If not, see
+ * <https://www.gnu.org/licenses/>.
+**/
 /* -----------------------------------------------------------------------
  * GGPO.net (http://ggpo.net)  -  Copyright 2009 GroundStorm Studios, LLC.
  *
@@ -10,6 +26,8 @@
 static const int RECOMMENDATION_INTERVAL = 240;
 static const int DEFAULT_DISCONNECT_TIMEOUT = 5000;
 static const int DEFAULT_DISCONNECT_NOTIFY_START = 750;
+
+static void Peer2PeerBackend_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void* user_data);
 
 Peer2PeerBackend::Peer2PeerBackend(GGPOSessionCallbacks* cb,
 	const char* gamename,
@@ -41,7 +59,7 @@ Peer2PeerBackend::Peer2PeerBackend(GGPOSessionCallbacks* cb,
 	/*
 	 * Initialize the UDP port
 	 */
-	_udp.Init(localport, this);
+	_udp.Init(localport, Peer2PeerBackend_OnMsg, this);
 
 	_endpoints = new UdpProtocol[_num_players];
 	memset(_local_connect_status, 0, sizeof(_local_connect_status));
@@ -291,14 +309,14 @@ Peer2PeerBackend::AddLocalInput(GGPOPlayerHandle player,
 		return result;
 	}
 
-	input.init(-1, (char*)values, size);
+	gameinput_init(&input, -1, (char*)values, size);
 
 	// Feed the input for the current frame into the synchronzation layer.
 	if (!_sync.AddLocalInput(queue, input)) {
 		return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
 	}
 
-	if (input.frame != GameInput::NullFrame) { // xxx: <- comment why this is the case
+	if (input.frame != GAMEINPUT_NULL_FRAME) { // xxx: <- comment why this is the case
 		// Update the local connect status state to indicate that we've got a
 		// confirmed local frame for this player.  this must come first so it
 		// gets incorporated into the next packet we send.
@@ -593,18 +611,18 @@ Peer2PeerBackend::PlayerHandleToQueue(GGPOPlayerHandle player, int* queue)
 }
 
 
-void
-Peer2PeerBackend::OnMsg(sockaddr_in& from, UdpMsg* msg, int len)
+static void Peer2PeerBackend_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void* user_data)
 {
-	for (int i = 0; i < _num_players; i++) {
-		if (_endpoints[i].HandlesMsg(from, msg)) {
-			_endpoints[i].OnMsg(msg, len);
+	Peer2PeerBackend* backend = (Peer2PeerBackend*)user_data;
+	for (int i = 0; i < backend->_num_players; i++) {
+		if (backend->_endpoints[i].HandlesMsg(from, msg)) {
+			backend->_endpoints[i].OnMsg(msg, len);
 			return;
 		}
 	}
-	for (int i = 0; i < _num_spectators; i++) {
-		if (_spectators[i].HandlesMsg(from, msg)) {
-			_spectators[i].OnMsg(msg, len);
+	for (int i = 0; i < backend->_num_spectators; i++) {
+		if (backend->_spectators[i].HandlesMsg(from, msg)) {
+			backend->_spectators[i].OnMsg(msg, len);
 			return;
 		}
 	}

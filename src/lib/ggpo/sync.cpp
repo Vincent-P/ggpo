@@ -1,3 +1,19 @@
+/**
+ * Copyright (C) 2025 Vincent Parizet
+ * This program is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation, either version 3 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program. If not, see
+ * <https://www.gnu.org/licenses/>.
+**/
 /* -----------------------------------------------------------------------
  * GGPO.net (http://ggpo.net)  -  Copyright 2009 GroundStorm Studios, LLC.
  *
@@ -93,7 +109,7 @@ Sync::GetConfirmedInputs(void *values, int size, int frame)
       GameInput input;
       if (_local_connect_status[i].disconnected && frame > _local_connect_status[i].last_frame) {
          disconnect_flags |= (1 << i);
-         input.erase();
+         gameinput_erase(&input);
       } else {
          _input_queues[i].GetConfirmedInput(frame, &input);
       }
@@ -115,7 +131,7 @@ Sync::SynchronizeInputs(void *values, int size)
       GameInput input;
       if (_local_connect_status[i].disconnected && _framecount > _local_connect_status[i].last_frame) {
          disconnect_flags |= (1 << i);
-         input.erase();
+         gameinput_erase(&input);
       } else {
          _input_queues[i].GetInput(_framecount, &input);
       }
@@ -256,17 +272,17 @@ Sync::CreateQueues(Config &config)
 bool
 Sync::CheckSimulationConsistency(int *seekTo)
 {
-   int first_incorrect = GameInput::NullFrame;
+   int first_incorrect = GAMEINPUT_NULL_FRAME;
    for (int i = 0; i < _config.num_players; i++) {
       int incorrect = _input_queues[i].GetFirstIncorrectFrame();
       Log("considering incorrect frame %d reported by queue %d.\n", incorrect, i);
 
-      if (incorrect != GameInput::NullFrame && (first_incorrect == GameInput::NullFrame || incorrect < first_incorrect)) {
+      if (incorrect != GAMEINPUT_NULL_FRAME && (first_incorrect == GAMEINPUT_NULL_FRAME || incorrect < first_incorrect)) {
          first_incorrect = incorrect;
       }
    }
 
-   if (first_incorrect == GameInput::NullFrame) {
+   if (first_incorrect == GAMEINPUT_NULL_FRAME) {
       Log("prediction ok.  proceeding.\n");
       return true;
    }

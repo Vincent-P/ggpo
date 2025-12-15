@@ -32,6 +32,8 @@
 
 static const int MAX_UDP_PACKET_SIZE = 4096;
 
+typedef void (*UdpOnMsgFn)(sockaddr_in &from, UdpMsg *msg, int len, void* user_data);
+
 class Udp
 {
 public:
@@ -41,19 +43,13 @@ public:
       float    kbps_sent;
    };
 
-   struct Callbacks {
-      virtual ~Callbacks() { }
-      virtual void OnMsg(sockaddr_in &from, UdpMsg *msg, int len) = 0;
-   };
-
-
 protected:
    void Log(const char *fmt, ...);
 
 public:
    Udp();
 
-   void Init(uint16 port, Callbacks *callbacks);
+   void Init(uint16 port, UdpOnMsgFn on_msg_callback, void *user_data);
    
    void SendTo(char *buffer, int len, int flags, struct sockaddr *dst, int destlen);
 
@@ -67,7 +63,8 @@ protected:
    SOCKET         _socket;
 
    // state management
-   Callbacks      *_callbacks;
+   void* _user_data = NULL;
+   UdpOnMsgFn      _on_msg_callback = NULL;
 };
 
 #endif

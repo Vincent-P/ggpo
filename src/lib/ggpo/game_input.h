@@ -27,28 +27,27 @@
 #include <stdio.h>
 #include <memory.h>
 
-// GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS * 8 must be less than
-// 2^BITVECTOR_NIBBLE_SIZE (see bitvector.h)
+ // GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS * 8 must be less than
+ // 2^BITVECTOR_NIBBLE_SIZE (see bitvector.h)
 
 #define GAMEINPUT_MAX_BYTES      9
 #define GAMEINPUT_MAX_PLAYERS    2
+#define GAMEINPUT_NULL_FRAME -1
 
-struct GameInput {
-   enum Constants {
-      NullFrame = -1
-   };
-   int      frame;
-   int      size; /* size in bytes of the entire input for all players */
-   char     bits[GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS];
-
-   void init(int frame, char *bits, int size);
-   bool value(int i) const { return (bits[i/8] & (1 << (i%8))) != 0; }
-   void set(int i) { bits[i/8] |= (1 << (i%8)); }
-   void clear(int i) { bits[i/8] &= ~(1 << (i%8)); }
-   void erase() { memset(bits, 0, sizeof(bits)); }
-   void desc(char *buf, size_t buf_size, bool show_frame = true) const;
-   void log(char *prefix, bool show_frame = true) const;
-   bool equal(GameInput &input, bool bitsonly = false);
+struct GameInput 
+{
+	int      frame;
+	int      size; /* size in bytes of the entire input for all players */
+	char     bits[GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS];
 };
+
+void gameinput_init(GameInput* input, int frame, char* bits, int size);
+inline bool gameinput_value(GameInput const* input, int i) { return (input->bits[i / 8] & (1 << (i % 8))) != 0; }
+inline void gameinput_set(GameInput* input, int i) { input->bits[i / 8] |= (1 << (i % 8)); }
+inline void gameinput_clear(GameInput* input, int i) { input->bits[i / 8] &= ~(1 << (i % 8)); }
+inline void gameinput_erase(GameInput* input) { memset(input->bits, 0, sizeof(input->bits)); }
+void gameinput_desc(GameInput const* input, char* buf, size_t buf_size, bool show_frame = true);
+void gameinput_log(GameInput const* input, char* prefix, bool show_frame = true);
+bool gameinput_equal(GameInput const* a, GameInput const* b, bool bitsonly = false);
 
 #endif
