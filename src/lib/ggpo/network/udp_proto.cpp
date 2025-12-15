@@ -79,7 +79,6 @@ UdpProtocol::~UdpProtocol()
 
 void
 UdpProtocol::Init(Udp *udp,
-                  Poll &poll,
                   int queue,
                   char *ip,
                   u_short port,
@@ -96,7 +95,6 @@ UdpProtocol::Init(Udp *udp,
    do {
       _magic_number = (uint16)rand();
    } while (_magic_number == 0);
-   poll.RegisterLoop(this);
 }
 
 void

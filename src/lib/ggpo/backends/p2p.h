@@ -25,7 +25,6 @@
 #define _P2P_H
 
 #include "types.h"
-#include "poll.h"
 #include "sync.h"
 #include "backend.h"
 #include "timesync.h"
@@ -71,7 +70,6 @@ protected:
 
 protected:
    GGPOSessionCallbacks  _callbacks;
-   Poll                  _poll;
    Sync                  _sync;
    Udp                   _udp;
    UdpProtocol           *_endpoints;

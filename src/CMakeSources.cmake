@@ -3,7 +3,6 @@ set(GGPO_LIB_INC_NOFILTER
 	"lib/ggpo/game_input.h"
 	"lib/ggpo/input_queue.h"
 	"lib/ggpo/log.h"
-	"lib/ggpo/poll.h"
 	"lib/ggpo/ring_buffer.h"
 	"lib/ggpo/sync.h"
 	"lib/ggpo/timesync.h"
@@ -16,7 +15,6 @@ set(GGPO_LIB_SRC_NOFILTER
 	"lib/ggpo/input_queue.cpp"
 	"lib/ggpo/log.cpp"
 	"lib/ggpo/main.cpp"
-	"lib/ggpo/poll.cpp"
 	"lib/ggpo/sync.cpp"
 	"lib/ggpo/timesync.cpp"
 )

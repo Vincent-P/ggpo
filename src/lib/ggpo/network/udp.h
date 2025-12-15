@@ -24,7 +24,6 @@
 #ifndef _UDP_H
 #define _UDP_H
 
-#include "poll.h"
 #include "udp_msg.h"
 #include "ggponet.h"
 #include "ring_buffer.h"
@@ -33,7 +32,7 @@
 
 static const int MAX_UDP_PACKET_SIZE = 4096;
 
-class Udp : public IPollSink
+class Udp
 {
 public:
    struct Stats {
@@ -54,11 +53,11 @@ protected:
 public:
    Udp();
 
-   void Init(uint16 port, Poll *p, Callbacks *callbacks);
+   void Init(uint16 port, Callbacks *callbacks);
    
    void SendTo(char *buffer, int len, int flags, struct sockaddr *dst, int destlen);
 
-   virtual bool OnLoopPoll();
+   bool OnLoopPoll();
 
 public:
    ~Udp(void);
@@ -69,7 +68,6 @@ protected:
 
    // state management
    Callbacks      *_callbacks;
-   Poll           *_poll;
 };
 
 #endif

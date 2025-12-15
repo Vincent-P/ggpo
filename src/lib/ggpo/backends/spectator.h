@@ -25,7 +25,6 @@
 #define _SPECTATOR_H
 
 #include "types.h"
-#include "poll.h"
 #include "sync.h"
 #include "backend.h"
 #include "timesync.h"
@@ -62,7 +61,6 @@ protected:
 
 protected:
    GGPOSessionCallbacks  _callbacks;
-   Poll                  _poll;
    Udp                   _udp;
    UdpProtocol           _host;
    bool                  _synchronizing;
