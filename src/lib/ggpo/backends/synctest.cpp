@@ -26,9 +26,9 @@
 SyncTestBackend::SyncTestBackend(GGPOSessionCallbacks *cb,
                                  char *gamename,
                                  int frames,
-                                 int num_players) :
-   _sync(NULL)
+                                 int num_players)
 {
+        sync_ctor(&_sync, NULL);
    _callbacks = *cb;
    _num_players = num_players;
    _check_distance = frames;
@@ -42,10 +42,10 @@ SyncTestBackend::SyncTestBackend(GGPOSessionCallbacks *cb,
    /*
     * Initialize the synchronziation layer
     */
-   Sync::Config config = { 0 };
+   sync_Config config = { 0 };
    config.callbacks = _callbacks;
    config.num_prediction_frames = MAX_PREDICTION_FRAMES;
-   _sync.Init(config);
+   sync_Init(&_sync, &config);
 
    /*
     * Preload the ROM
@@ -103,8 +103,8 @@ SyncTestBackend::SyncInput(void *values,
    if (_rollingback) {
       _last_input = _saved_frames.front().input;
    } else {
-      if (_sync.GetFrameCount() == 0) {
-         _sync.SaveCurrentFrame();
+      if (sync_GetFrameCount(&_sync) == 0) {
+         sync_SaveCurrentFrame(&_sync);
       }
       _last_input = _current_input;
    }
@@ -118,33 +118,33 @@ SyncTestBackend::SyncInput(void *values,
 GGPOErrorCode
 SyncTestBackend::IncrementFrame(void)
 {  
-   _sync.IncrementFrame();
+   sync_IncrementFrame(&_sync);
    gameinput_erase(&_current_input);
    
-   Log("End of frame(%d)...\n", _sync.GetFrameCount());
+   Log("End of frame(%d)...\n", sync_GetFrameCount(&_sync));
    EndLog();
 
    if (_rollingback) {
       return GGPO_OK;
    }
 
-   int frame = _sync.GetFrameCount();
+   int frame = sync_GetFrameCount(&_sync);
    // Hold onto the current frame in our queue of saved states.  We'll need
    // the checksum later to verify that our replay of the same frame got the
    // same results.
    SavedInfo info;
    info.frame = frame;
    info.input = _last_input;
-   info.cbuf = _sync.GetLastSavedFrame().cbuf;
+   info.cbuf = sync_GetLastSavedFrame(&_sync)->cbuf;
    info.buf = (char *)malloc(info.cbuf);
-   memcpy(info.buf, _sync.GetLastSavedFrame().buf, info.cbuf);
-   info.checksum = _sync.GetLastSavedFrame().checksum;
+   memcpy(info.buf, sync_GetLastSavedFrame(&_sync)->buf, info.cbuf);
+   info.checksum = sync_GetLastSavedFrame(&_sync)->checksum;
    _saved_frames.push(info);
 
    if (frame - _last_verified == _check_distance) {
       // We've gone far enough ahead and should now start replaying frames.
       // Load the last verified frame and set the rollback flag to true.
-      _sync.LoadFrame(_last_verified);
+      sync_LoadFrame(&_sync, _last_verified);
 
       _rollingback = true;
       while(!_saved_frames.empty()) {
@@ -155,10 +155,10 @@ SyncTestBackend::IncrementFrame(void)
          info = _saved_frames.front();
          _saved_frames.pop();
 
-         if (info.frame != _sync.GetFrameCount()) {
+         if (info.frame != sync_GetFrameCount(&_sync)) {
             RaiseSyncError("Frame number %d does not match saved frame number %d", info.frame, frame);
          }
-         int checksum = _sync.GetLastSavedFrame().checksum;
+         int checksum = sync_GetLastSavedFrame(&_sync)->checksum;
          if (info.checksum != checksum) {
             LogSaveStates(info);
             RaiseSyncError("Checksum for frame %d does not match saved (%d != %d)", frame, checksum, info.checksum);
@@ -206,7 +206,7 @@ SyncTestBackend::BeginLog(int saving)
    CreateDirectoryA("synclogs", NULL);
    sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\%s-%04d-%s.log",
            saving ? "state" : "log",
-           _sync.GetFrameCount(),
+           sync_GetFrameCount(&_sync),
            _rollingback ? "replay" : "original");
 
     fopen_s(&_logfp, filename, "w");
@@ -225,9 +225,9 @@ void
 SyncTestBackend::LogSaveStates(SavedInfo &info)
 {
    char filename[MAX_PATH];
-   sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-original.log", _sync.GetFrameCount());
+   sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-original.log", sync_GetFrameCount(&_sync));
    _callbacks.log_game_state(filename, (unsigned char *)info.buf, info.cbuf);
 
-   sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-replay.log", _sync.GetFrameCount());
-   _callbacks.log_game_state(filename, _sync.GetLastSavedFrame().buf, _sync.GetLastSavedFrame().cbuf);
+   sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-replay.log", sync_GetFrameCount(&_sync));
+   _callbacks.log_game_state(filename, sync_GetLastSavedFrame(&_sync)->buf, sync_GetLastSavedFrame(&_sync)->cbuf);
 }

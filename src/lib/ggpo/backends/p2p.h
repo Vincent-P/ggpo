@@ -57,7 +57,7 @@ public:
    int PollNPlayers(int current_frame);
    void AddRemotePlayer(char *remoteip, uint16 reportport, int queue);
    GGPOErrorCode AddSpectator(char *remoteip, uint16 reportport);
-   virtual void OnSyncEvent(Sync::Event &e) { }
+   virtual void OnSyncEvent(sync_Event &e) { }
    virtual void OnUdpProtocolEvent(UdpProtocol::Event &e, GGPOPlayerHandle handle);
    virtual void OnUdpProtocolPeerEvent(UdpProtocol::Event &e, int queue);
    virtual void OnUdpProtocolSpectatorEvent(UdpProtocol::Event &e, int queue);

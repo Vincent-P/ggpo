@@ -36,12 +36,12 @@ Peer2PeerBackend::Peer2PeerBackend(GGPOSessionCallbacks* cb,
 	int input_size) :
 	_num_players(num_players),
 	_input_size(input_size),
-	_sync(_local_connect_status),
 	_disconnect_timeout(DEFAULT_DISCONNECT_TIMEOUT),
 	_disconnect_notify_start(DEFAULT_DISCONNECT_NOTIFY_START),
 	_num_spectators(0),
 	_next_spectator_frame(0)
 {
+	sync_ctor(&_sync, _local_connect_status);
 	_callbacks = *cb;
 	_synchronizing = true;
 	_next_recommended_sleep = 0;
@@ -49,12 +49,12 @@ Peer2PeerBackend::Peer2PeerBackend(GGPOSessionCallbacks* cb,
 	/*
 	 * Initialize the synchronziation layer
 	 */
-	Sync::Config config = { 0 };
+	sync_Config config = { 0 };
 	config.num_players = num_players;
 	config.input_size = input_size;
 	config.callbacks = _callbacks;
 	config.num_prediction_frames = MAX_PREDICTION_FRAMES;
-	_sync.Init(config);
+	sync_Init(&_sync, &config);
 
 	/*
 	 * Initialize the UDP port
@@ -76,6 +76,7 @@ Peer2PeerBackend::Peer2PeerBackend(GGPOSessionCallbacks* cb,
 Peer2PeerBackend::~Peer2PeerBackend()
 {
 	delete[] _endpoints;
+	sync_dtor(&_sync);
 }
 
 void
@@ -119,7 +120,7 @@ GGPOErrorCode Peer2PeerBackend::AddSpectator(char* ip,
 GGPOErrorCode
 Peer2PeerBackend::DoPoll(int timeout)
 {
-	if (!_sync.InRollback()) {
+	if (!sync_InRollback(&_sync)) {
 
 		_udp.OnLoopPoll();
 		for (int i = 0; i < _num_players; i++) {
@@ -132,11 +133,11 @@ Peer2PeerBackend::DoPoll(int timeout)
 		PollUdpProtocolEvents();
 
 		if (!_synchronizing) {
-			_sync.CheckSimulation(timeout);
+			sync_CheckSimulation(&_sync, timeout);
 
 			// notify all of our endpoints of their local frame number for their
 			// next connection quality report
-			int current_frame = _sync.GetFrameCount();
+			int current_frame = sync_GetFrameCount(&_sync);
 			for (int i = 0; i < _num_players; i++) {
 				_endpoints[i].SetLocalFrameNumber(current_frame);
 			}
@@ -159,7 +160,7 @@ Peer2PeerBackend::DoPoll(int timeout)
 						GameInput input;
 						input.frame = _next_spectator_frame;
 						input.size = _input_size * _num_players;
-						_sync.GetConfirmedInputs(input.bits, _input_size * _num_players, _next_spectator_frame);
+						sync_GetConfirmedInputs(&_sync, input.bits, _input_size * _num_players, _next_spectator_frame);
 						for (int i = 0; i < _num_spectators; i++) {
 							_spectators[i].SendInput(input);
 						}
@@ -167,7 +168,7 @@ Peer2PeerBackend::DoPoll(int timeout)
 					}
 				}
 				Log("setting confirmed frame in sync to %d.\n", total_min_confirmed);
-				_sync.SetLastConfirmedFrame(total_min_confirmed);
+				sync_SetLastConfirmedFrame(&_sync, total_min_confirmed);
 			}
 
 			// send timesync notifications if now is the proper time
@@ -297,7 +298,7 @@ Peer2PeerBackend::AddLocalInput(GGPOPlayerHandle player,
 	GameInput input;
 	GGPOErrorCode result;
 
-	if (_sync.InRollback()) {
+	if (sync_InRollback(&_sync)) {
 		return GGPO_ERRORCODE_IN_ROLLBACK;
 	}
 	if (_synchronizing) {
@@ -312,7 +313,7 @@ Peer2PeerBackend::AddLocalInput(GGPOPlayerHandle player,
 	gameinput_init(&input, -1, (char*)values, size);
 
 	// Feed the input for the current frame into the synchronzation layer.
-	if (!_sync.AddLocalInput(queue, input)) {
+	if (!sync_AddLocalInput(&_sync, queue, input)) {
 		return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
 	}
 
@@ -347,7 +348,7 @@ Peer2PeerBackend::SyncInput(void* values,
 	if (_synchronizing) {
 		return GGPO_ERRORCODE_NOT_SYNCHRONIZED;
 	}
-	flags = _sync.SynchronizeInputs(values, size);
+	flags = sync_SynchronizeInputs(&_sync, values, size);
 	if (disconnect_flags) {
 		*disconnect_flags = flags;
 	}
@@ -357,8 +358,8 @@ Peer2PeerBackend::SyncInput(void* values,
 GGPOErrorCode
 Peer2PeerBackend::IncrementFrame(void)
 {
-	Log("End of frame (%d)...\n", _sync.GetFrameCount());
-	_sync.IncrementFrame();
+	Log("End of frame (%d)...\n", sync_GetFrameCount(&_sync));
+	sync_IncrementFrame(&_sync);
 	DoPoll(0);
 	PollSyncEvents();
 
@@ -369,8 +370,8 @@ Peer2PeerBackend::IncrementFrame(void)
 void
 Peer2PeerBackend::PollSyncEvents(void)
 {
-	Sync::Event e;
-	while (_sync.GetEvent(e)) {
+	sync_Event e;
+	while (sync_GetEvent(&_sync, &e)) {
 		OnSyncEvent(e);
 	}
 	return;
@@ -403,7 +404,7 @@ Peer2PeerBackend::OnUdpProtocolPeerEvent(UdpProtocol::Event& evt, int queue)
 			int new_remote_frame = evt.u.input.input.frame;
 			ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
 
-			_sync.AddRemoteInput(queue, evt.u.input.input);
+			sync_AddRemoteInput(&_sync, queue, evt.u.input.input);
 			// Notify the other endpoints which frame we received from a peer
 			Log("setting remote connect status for queue %d to %d\n", queue, evt.u.input.input.frame);
 			_local_connect_status[queue].last_frame = evt.u.input.input.frame;
@@ -499,7 +500,7 @@ Peer2PeerBackend::DisconnectPlayer(GGPOPlayerHandle player)
 	}
 
 	if (!_endpoints[queue].IsInitialized()) {
-		int current_frame = _sync.GetFrameCount();
+		int current_frame = sync_GetFrameCount(&_sync);
 		// xxx: we should be tracking who the local player is, but for now assume
 		// that if the endpoint is not initalized, this must be the local player.
 		Log("Disconnecting local player %d at frame %d by user request.\n", queue, _local_connect_status[queue].last_frame);
@@ -520,7 +521,7 @@ void
 Peer2PeerBackend::DisconnectPlayerQueue(int queue, int syncto)
 {
 	GGPOEvent info;
-	int framecount = _sync.GetFrameCount();
+	int framecount = sync_GetFrameCount(&_sync);
 
 	_endpoints[queue].Disconnect();
 
@@ -532,7 +533,7 @@ Peer2PeerBackend::DisconnectPlayerQueue(int queue, int syncto)
 
 	if (syncto < framecount) {
 		Log("adjusting simulation to account for the fact that %d disconnected @ %d.\n", queue, syncto);
-		_sync.AdjustSimulation(syncto);
+		sync_AdjustSimulation(&_sync, syncto);
 		Log("finished adjusting simulation.\n");
 	}
 
@@ -571,7 +572,7 @@ Peer2PeerBackend::SetFrameDelay(GGPOPlayerHandle player, int delay)
 	if (!GGPO_SUCCEEDED(result)) {
 		return result;
 	}
-	_sync.SetFrameDelay(queue, delay);
+	sync_SetFrameDelay(&_sync, queue, delay);
 	return GGPO_OK;
 }
 
