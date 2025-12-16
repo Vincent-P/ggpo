@@ -51,7 +51,7 @@ public:
    void PollUdpProtocolEvents(void);
    void CheckInitialSync(void);
 
-   void OnUdpProtocolEvent(UdpProtocol::Event &e);
+   void OnUdpProtocolEvent(udp_protocol_Event &e);
 
    GGPOSessionCallbacks  _callbacks;
    Udp                   _udp;

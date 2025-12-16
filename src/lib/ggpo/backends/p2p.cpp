@@ -59,9 +59,16 @@ Peer2PeerBackend::Peer2PeerBackend(GGPOSessionCallbacks* cb,
 	/*
 	 * Initialize the UDP port
 	 */
-	_udp.Init(localport, Peer2PeerBackend_OnMsg, this);
+	udp_ctor(&_udp);
+	udp_Init(&_udp, localport, Peer2PeerBackend_OnMsg, this);
 
 	_endpoints = new UdpProtocol[_num_players];
+	for (int i = 0; i < _num_players; ++i) {
+		UdpProtocol_ctor(&_endpoints[i]);
+	}
+	for (int i = 0; i < ARRAY_SIZE(_spectators); i++) {
+		UdpProtocol_ctor(&_spectators[i]);
+	}
 	memset(_local_connect_status, 0, sizeof(_local_connect_status));
 	for (int i = 0; i < ARRAY_SIZE(_local_connect_status); i++) {
 		_local_connect_status[i].last_frame = -1;
@@ -75,8 +82,12 @@ Peer2PeerBackend::Peer2PeerBackend(GGPOSessionCallbacks* cb,
 
 Peer2PeerBackend::~Peer2PeerBackend()
 {
+	for (int i = 0; i < _num_players; ++i) {
+		UdpProtocol_dtor(&_endpoints[i]);
+	}
 	delete[] _endpoints;
 	sync_dtor(&_sync);
+	udp_dtor(&_udp);
 }
 
 void
@@ -89,10 +100,10 @@ Peer2PeerBackend::AddRemotePlayer(char* ip,
 	 */
 	_synchronizing = true;
 
-	_endpoints[queue].Init(&_udp, queue, ip, port, _local_connect_status);
-	_endpoints[queue].SetDisconnectTimeout(_disconnect_timeout);
-	_endpoints[queue].SetDisconnectNotifyStart(_disconnect_notify_start);
-	_endpoints[queue].Synchronize();
+	UdpProtocol_Init(&_endpoints[queue], &_udp, queue, ip, port, _local_connect_status);
+	UdpProtocol_SetDisconnectTimeout(&_endpoints[queue], _disconnect_timeout);
+	UdpProtocol_SetDisconnectNotifyStart(&_endpoints[queue], _disconnect_notify_start);
+	UdpProtocol_Synchronize(&_endpoints[queue]);
 }
 
 GGPOErrorCode Peer2PeerBackend::AddSpectator(char* ip,
@@ -109,10 +120,10 @@ GGPOErrorCode Peer2PeerBackend::AddSpectator(char* ip,
 	}
 	int queue = _num_spectators++;
 
-	_spectators[queue].Init(&_udp, queue + 1000, ip, port, _local_connect_status);
-	_spectators[queue].SetDisconnectTimeout(_disconnect_timeout);
-	_spectators[queue].SetDisconnectNotifyStart(_disconnect_notify_start);
-	_spectators[queue].Synchronize();
+	UdpProtocol_Init(&_spectators[queue], &_udp, queue + 1000, ip, port, _local_connect_status);
+	UdpProtocol_SetDisconnectTimeout(&_spectators[queue], _disconnect_timeout);
+	UdpProtocol_SetDisconnectNotifyStart(&_spectators[queue], _disconnect_notify_start);
+	UdpProtocol_Synchronize(&_spectators[queue]);
 
 	return GGPO_OK;
 }
@@ -122,12 +133,12 @@ Peer2PeerBackend::DoPoll(int timeout)
 {
 	if (!sync_InRollback(&_sync)) {
 
-		_udp.OnLoopPoll();
+		udp_OnLoopPoll(&_udp);
 		for (int i = 0; i < _num_players; i++) {
-			_endpoints[i].OnLoopPoll();
+			UdpProtocol_OnLoopPoll(&_endpoints[i]);
 		}
 		for (int i = 0; i < _num_spectators; i++) {
-			_spectators[i].OnLoopPoll();
+			UdpProtocol_OnLoopPoll(&_spectators[i]);
 		}
 
 		PollUdpProtocolEvents();
@@ -139,7 +150,7 @@ Peer2PeerBackend::DoPoll(int timeout)
 			// next connection quality report
 			int current_frame = sync_GetFrameCount(&_sync);
 			for (int i = 0; i < _num_players; i++) {
-				_endpoints[i].SetLocalFrameNumber(current_frame);
+				UdpProtocol_SetLocalFrameNumber(&_endpoints[i], current_frame);
 			}
 
 			int total_min_confirmed;
@@ -162,7 +173,7 @@ Peer2PeerBackend::DoPoll(int timeout)
 						input.size = _input_size * _num_players;
 						sync_GetConfirmedInputs(&_sync, input.bits, _input_size * _num_players, _next_spectator_frame);
 						for (int i = 0; i < _num_spectators; i++) {
-							_spectators[i].SendInput(input);
+							UdpProtocol_SendInput(&_spectators[i], input);
 						}
 						_next_spectator_frame++;
 					}
@@ -175,7 +186,7 @@ Peer2PeerBackend::DoPoll(int timeout)
 			if (current_frame > _next_recommended_sleep) {
 				int interval = 0;
 				for (int i = 0; i < _num_players; i++) {
-					interval = MAX(interval, _endpoints[i].RecommendFrameDelay());
+					interval = MAX(interval, UdpProtocol_RecommendFrameDelay(&_endpoints[i]));
 				}
 
 				if (interval > 0) {
@@ -203,9 +214,9 @@ int Peer2PeerBackend::Poll2Players(int current_frame)
 	int total_min_confirmed = MAX_INT;
 	for (i = 0; i < _num_players; i++) {
 		bool queue_connected = true;
-		if (_endpoints[i].IsRunning()) {
+		if (UdpProtocol_IsRunning(&_endpoints[i])) {
 			int ignore;
-			queue_connected = _endpoints[i].GetPeerConnectStatus(i, &ignore);
+			queue_connected = UdpProtocol_GetPeerConnectStatus(&_endpoints[i], i, &ignore);
 		}
 		if (!_local_connect_status[i].disconnected) {
 			total_min_confirmed = MIN(_local_connect_status[i].last_frame, total_min_confirmed);
@@ -234,8 +245,8 @@ int Peer2PeerBackend::PollNPlayers(int current_frame)
 			// we're going to do a lot of logic here in consideration of endpoint i.
 			// keep accumulating the minimum confirmed point for all n*n packets and
 			// throw away the rest.
-			if (_endpoints[i].IsRunning()) {
-				bool connected = _endpoints[i].GetPeerConnectStatus(queue, &last_received);
+			if (UdpProtocol_IsRunning(&_endpoints[i])) {
+				bool connected = UdpProtocol_GetPeerConnectStatus(&_endpoints[i], queue, &last_received);
 
 				queue_connected = queue_connected && connected;
 				queue_min_confirmed = MIN(last_received, queue_min_confirmed);
@@ -327,8 +338,8 @@ Peer2PeerBackend::AddLocalInput(GGPOPlayerHandle player,
 
 		// Send the input to all the remote players.
 		for (int i = 0; i < _num_players; i++) {
-			if (_endpoints[i].IsInitialized()) {
-				_endpoints[i].SendInput(input);
+			if (UdpProtocol_IsInitialized(&_endpoints[i])) {
+				UdpProtocol_SendInput(&_endpoints[i], input);
 			}
 		}
 	}
@@ -380,25 +391,25 @@ Peer2PeerBackend::PollSyncEvents(void)
 void
 Peer2PeerBackend::PollUdpProtocolEvents(void)
 {
-	UdpProtocol::Event evt;
+	udp_protocol_Event evt;
 	for (int i = 0; i < _num_players; i++) {
-		while (_endpoints[i].GetEvent(evt)) {
+		while (UdpProtocol_GetEvent(&_endpoints[i], evt)) {
 			OnUdpProtocolPeerEvent(evt, i);
 		}
 	}
 	for (int i = 0; i < _num_spectators; i++) {
-		while (_spectators[i].GetEvent(evt)) {
+		while (UdpProtocol_GetEvent(&_spectators[i], evt)) {
 			OnUdpProtocolSpectatorEvent(evt, i);
 		}
 	}
 }
 
 void
-Peer2PeerBackend::OnUdpProtocolPeerEvent(UdpProtocol::Event& evt, int queue)
+Peer2PeerBackend::OnUdpProtocolPeerEvent(udp_protocol_Event& evt, int queue)
 {
 	OnUdpProtocolEvent(evt, QueueToPlayerHandle(queue));
 	switch (evt.type) {
-	case UdpProtocol::Event::Input:
+	case UdpProtocol_Event_Input:
 		if (!_local_connect_status[queue].disconnected) {
 			int current_remote_frame = _local_connect_status[queue].last_frame;
 			int new_remote_frame = evt.u.input.input.frame;
@@ -411,7 +422,7 @@ Peer2PeerBackend::OnUdpProtocolPeerEvent(UdpProtocol::Event& evt, int queue)
 		}
 		break;
 
-	case UdpProtocol::Event::Disconnected:
+	case UdpProtocol_Event_Disconnected:
 		DisconnectPlayer(QueueToPlayerHandle(queue));
 		break;
 	}
@@ -419,7 +430,7 @@ Peer2PeerBackend::OnUdpProtocolPeerEvent(UdpProtocol::Event& evt, int queue)
 
 
 void
-Peer2PeerBackend::OnUdpProtocolSpectatorEvent(UdpProtocol::Event& evt, int queue)
+Peer2PeerBackend::OnUdpProtocolSpectatorEvent(udp_protocol_Event& evt, int queue)
 {
 	GGPOPlayerHandle handle = QueueToSpectatorHandle(queue);
 	OnUdpProtocolEvent(evt, handle);
@@ -427,8 +438,8 @@ Peer2PeerBackend::OnUdpProtocolSpectatorEvent(UdpProtocol::Event& evt, int queue
 	GGPOEvent info;
 
 	switch (evt.type) {
-	case UdpProtocol::Event::Disconnected:
-		_spectators[queue].Disconnect();
+	case UdpProtocol_Event_Disconnected:
+		UdpProtocol_Disconnect(&_spectators[queue]);
 
 		info.code = GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
 		info.u.disconnected.player = handle;
@@ -439,24 +450,24 @@ Peer2PeerBackend::OnUdpProtocolSpectatorEvent(UdpProtocol::Event& evt, int queue
 }
 
 void
-Peer2PeerBackend::OnUdpProtocolEvent(UdpProtocol::Event& evt, GGPOPlayerHandle handle)
+Peer2PeerBackend::OnUdpProtocolEvent(udp_protocol_Event& evt, GGPOPlayerHandle handle)
 {
 	GGPOEvent info;
 
 	switch (evt.type) {
-	case UdpProtocol::Event::Connected:
+	case UdpProtocol_Event_Connected:
 		info.code = GGPO_EVENTCODE_CONNECTED_TO_PEER;
 		info.u.connected.player = handle;
 		_callbacks.on_event(&info);
 		break;
-	case UdpProtocol::Event::Synchronizing:
+	case UdpProtocol_Event_Synchronizing:
 		info.code = GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
 		info.u.synchronizing.player = handle;
 		info.u.synchronizing.count = evt.u.synchronizing.count;
 		info.u.synchronizing.total = evt.u.synchronizing.total;
 		_callbacks.on_event(&info);
 		break;
-	case UdpProtocol::Event::Synchronzied:
+	case UdpProtocol_Event_Synchronzied:
 		info.code = GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER;
 		info.u.synchronized.player = handle;
 		_callbacks.on_event(&info);
@@ -464,14 +475,14 @@ Peer2PeerBackend::OnUdpProtocolEvent(UdpProtocol::Event& evt, GGPOPlayerHandle h
 		CheckInitialSync();
 		break;
 
-	case UdpProtocol::Event::NetworkInterrupted:
+	case UdpProtocol_Event_NetworkInterrupted:
 		info.code = GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
 		info.u.connection_interrupted.player = handle;
 		info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
 		_callbacks.on_event(&info);
 		break;
 
-	case UdpProtocol::Event::NetworkResumed:
+	case UdpProtocol_Event_NetworkResumed:
 		info.code = GGPO_EVENTCODE_CONNECTION_RESUMED;
 		info.u.connection_resumed.player = handle;
 		_callbacks.on_event(&info);
@@ -499,13 +510,13 @@ Peer2PeerBackend::DisconnectPlayer(GGPOPlayerHandle player)
 		return GGPO_ERRORCODE_PLAYER_DISCONNECTED;
 	}
 
-	if (!_endpoints[queue].IsInitialized()) {
+	if (!UdpProtocol_IsInitialized(&_endpoints[queue])) {
 		int current_frame = sync_GetFrameCount(&_sync);
 		// xxx: we should be tracking who the local player is, but for now assume
 		// that if the endpoint is not initalized, this must be the local player.
 		Log("Disconnecting local player %d at frame %d by user request.\n", queue, _local_connect_status[queue].last_frame);
 		for (int i = 0; i < _num_players; i++) {
-			if (_endpoints[i].IsInitialized()) {
+			if (UdpProtocol_IsInitialized(&_endpoints[i])) {
 				DisconnectPlayerQueue(i, current_frame);
 			}
 		}
@@ -523,7 +534,7 @@ Peer2PeerBackend::DisconnectPlayerQueue(int queue, int syncto)
 	GGPOEvent info;
 	int framecount = sync_GetFrameCount(&_sync);
 
-	_endpoints[queue].Disconnect();
+	UdpProtocol_Disconnect(&_endpoints[queue]);
 
 	Log("Changing queue %d local connect status for last frame from %d to %d on disconnect request (current: %d).\n",
 		queue, _local_connect_status[queue].last_frame, syncto, framecount);
@@ -557,7 +568,7 @@ Peer2PeerBackend::GetNetworkStats(GGPONetworkStats* stats, GGPOPlayerHandle play
 	}
 
 	memset(stats, 0, sizeof * stats);
-	_endpoints[queue].GetNetworkStats(stats);
+	UdpProtocol_GetNetworkStats(&_endpoints[queue], stats);
 
 	return GGPO_OK;
 }
@@ -581,8 +592,8 @@ Peer2PeerBackend::SetDisconnectTimeout(int timeout)
 {
 	_disconnect_timeout = timeout;
 	for (int i = 0; i < _num_players; i++) {
-		if (_endpoints[i].IsInitialized()) {
-			_endpoints[i].SetDisconnectTimeout(_disconnect_timeout);
+		if (UdpProtocol_IsInitialized(&_endpoints[i])) {
+			UdpProtocol_SetDisconnectTimeout(&_endpoints[i], _disconnect_timeout);
 		}
 	}
 	return GGPO_OK;
@@ -593,8 +604,8 @@ Peer2PeerBackend::SetDisconnectNotifyStart(int timeout)
 {
 	_disconnect_notify_start = timeout;
 	for (int i = 0; i < _num_players; i++) {
-		if (_endpoints[i].IsInitialized()) {
-			_endpoints[i].SetDisconnectNotifyStart(_disconnect_notify_start);
+		if (UdpProtocol_IsInitialized(&_endpoints[i])) {
+			UdpProtocol_SetDisconnectNotifyStart(&_endpoints[i], _disconnect_notify_start);
 		}
 	}
 	return GGPO_OK;
@@ -616,14 +627,14 @@ static void Peer2PeerBackend_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void
 {
 	Peer2PeerBackend* backend = (Peer2PeerBackend*)user_data;
 	for (int i = 0; i < backend->_num_players; i++) {
-		if (backend->_endpoints[i].HandlesMsg(from, msg)) {
-			backend->_endpoints[i].OnMsg(msg, len);
+		if (UdpProtocol_HandlesMsg(&backend->_endpoints[i], from, msg)) {
+			UdpProtocol_OnMsg(&backend->_endpoints[i], msg, len);
 			return;
 		}
 	}
 	for (int i = 0; i < backend->_num_spectators; i++) {
-		if (backend->_spectators[i].HandlesMsg(from, msg)) {
-			backend->_spectators[i].OnMsg(msg, len);
+		if (UdpProtocol_HandlesMsg(&backend->_spectators[i], from, msg)) {
+			UdpProtocol_OnMsg(&backend->_spectators[i], msg, len);
 			return;
 		}
 	}
@@ -639,12 +650,12 @@ Peer2PeerBackend::CheckInitialSync()
 		// go ahead and tell the client that we're ok to accept input.
 		for (i = 0; i < _num_players; i++) {
 			// xxx: IsInitialized() must go... we're actually using it as a proxy for "represents the local player"
-			if (_endpoints[i].IsInitialized() && !_endpoints[i].IsSynchronized() && !_local_connect_status[i].disconnected) {
+			if (UdpProtocol_IsInitialized(&_endpoints[i]) && !UdpProtocol_IsSynchronized(&_endpoints[i]) && !_local_connect_status[i].disconnected) {
 				return;
 			}
 		}
 		for (i = 0; i < _num_spectators; i++) {
-			if (_spectators[i].IsInitialized() && !_spectators[i].IsSynchronized()) {
+			if (UdpProtocol_IsInitialized(&_spectators[i]) && !UdpProtocol_IsSynchronized(&_spectators[i])) {
 				return;
 			}
 		}

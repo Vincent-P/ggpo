@@ -24,7 +24,6 @@
 #ifndef _UDP_H
 #define _UDP_H
 
-#include "udp_msg.h"
 #include "ggponet.h"
 #include "ring_buffer.h"
 
@@ -32,33 +31,18 @@
 
 static const int MAX_UDP_PACKET_SIZE = 4096;
 
+struct UdpMsg;
 typedef void (*UdpOnMsgFn)(sockaddr_in &from, UdpMsg *msg, int len, void* user_data);
 
-class Udp
-{
-public:
-   struct Stats {
+
+struct udp_Stats {
       int      bytes_sent;
       int      packets_sent;
       float    kbps_sent;
-   };
+};
 
-protected:
-   void Log(const char *fmt, ...);
-
-public:
-   Udp();
-
-   void Init(uint16 port, UdpOnMsgFn on_msg_callback, void *user_data);
-   
-   void SendTo(char *buffer, int len, int flags, struct sockaddr *dst, int destlen);
-
-   bool OnLoopPoll();
-
-public:
-   ~Udp(void);
-
-protected:
+struct Udp
+{
    // Network transmission information
    SOCKET         _socket;
 
@@ -66,5 +50,14 @@ protected:
    void* _user_data = NULL;
    UdpOnMsgFn      _on_msg_callback = NULL;
 };
+
+void udp_Log(const char *fmt, ...);
+
+void udp_ctor(Udp* udp);
+void udp_dtor(Udp* udp);
+void udp_Init(Udp* udp, uint16 port, UdpOnMsgFn on_msg_callback, void *user_data);   
+void udp_SendTo(Udp* ud, char *buffer, int len, int flags, struct sockaddr *dst, int destlen);
+bool udp_OnLoopPoll(Udp* udp);
+
 
 #endif

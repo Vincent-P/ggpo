@@ -30,6 +30,8 @@
 #include "timesync.h"
 #include "network/udp_proto.h"
 
+struct UdpMsg;
+
 class Peer2PeerBackend : public GGPOSession {
 public:
    Peer2PeerBackend(GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size);
@@ -58,9 +60,9 @@ public:
    void AddRemotePlayer(char *remoteip, uint16 reportport, int queue);
    GGPOErrorCode AddSpectator(char *remoteip, uint16 reportport);
    virtual void OnSyncEvent(sync_Event &e) { }
-   virtual void OnUdpProtocolEvent(UdpProtocol::Event &e, GGPOPlayerHandle handle);
-   virtual void OnUdpProtocolPeerEvent(UdpProtocol::Event &e, int queue);
-   virtual void OnUdpProtocolSpectatorEvent(UdpProtocol::Event &e, int queue);
+   virtual void OnUdpProtocolEvent(udp_protocol_Event &e, GGPOPlayerHandle handle);
+   virtual void OnUdpProtocolPeerEvent(udp_protocol_Event &e, int queue);
+   virtual void OnUdpProtocolSpectatorEvent(udp_protocol_Event &e, int queue);
 
    GGPOSessionCallbacks  _callbacks;
    Sync                  _sync;
@@ -78,7 +80,7 @@ public:
    int                   _disconnect_timeout;
    int                   _disconnect_notify_start;
 
-   UdpMsg::connect_status _local_connect_status[UDP_MSG_MAX_PLAYERS];
+   UdpMsg_connect_status _local_connect_status[UDP_MSG_MAX_PLAYERS];
 };
 
 #endif

@@ -29,11 +29,11 @@
 #include "game_input.h"
 #include "input_queue.h"
 #include "ring_buffer.h"
-#include "network/udp_msg.h"
 
 #define MAX_PREDICTION_FRAMES    8
 
 class SyncTestBackend;
+struct UdpMsg_connect_status;
 
 struct sync_Config
 {
@@ -83,10 +83,10 @@ struct Sync
         InputQueue* _input_queues;
 
         RingBuffer<sync_Event, 32> _event_queue;
-        UdpMsg::connect_status* _local_connect_status;
+        UdpMsg_connect_status* _local_connect_status;
 };
 
-void sync_ctor(Sync* sync, UdpMsg::connect_status* connect_status);
+void sync_ctor(Sync* sync, UdpMsg_connect_status* connect_status);
 void sync_dtor(Sync* sync);
 void sync_Init(Sync *sync, sync_Config* config);
 

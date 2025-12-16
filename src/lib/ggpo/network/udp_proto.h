@@ -25,36 +25,34 @@
 #define _UDP_PROTO_H_
 
 #include "udp.h"
-#include "udp_msg.h"
 #include "game_input.h"
 #include "timesync.h"
 #include "ggponet.h"
 #include "ring_buffer.h"
+#include "udp_msg.h"
 
-class UdpProtocol
-{
-public:
-	struct Stats {
+
+struct udp_protocol_Stats {
 		int                 ping;
 		int                 remote_frame_advantage;
 		int                 local_frame_advantage;
 		int                 send_queue_len;
-		Udp::Stats          udp;
-	};
+		udp_Stats          udp;
+};
 
-	struct Event {
-		enum Type {
-			Unknown = -1,
-			Connected,
-			Synchronizing,
-			Synchronzied,
-			Input,
-			Disconnected,
-			NetworkInterrupted,
-			NetworkResumed,
-		};
+enum udp_protocol_EventType {
+			UdpProtocol_Event_Unknown = -1,
+			UdpProtocol_Event_Connected,
+			UdpProtocol_Event_Synchronizing,
+			UdpProtocol_Event_Synchronzied,
+			UdpProtocol_Event_Input,
+			UdpProtocol_Event_Disconnected,
+			UdpProtocol_Event_NetworkInterrupted,
+			UdpProtocol_Event_NetworkResumed,
+};
 
-		Type      type;
+struct udp_protocol_Event {
+		udp_protocol_EventType      type;
 		union {
 			struct {
 				GameInput   input;
@@ -67,77 +65,26 @@ public:
 				int         disconnect_timeout;
 			} network_interrupted;
 		} u;
+};
 
-		UdpProtocol::Event(Type t = Unknown) : type(t) {}
-	};
 
-public:
-	bool OnLoopPoll();
+enum udp_protocol_State
+{
+		UdpProtocol_Syncing,
+		UdpProtocol_Synchronzied,
+		UdpProtocol_Running,
+		UdpProtocol_Disconnected
+};
 
-public:
-	UdpProtocol();
-	~UdpProtocol();
-
-	void Init(Udp* udp, int queue, char* ip, u_short port, UdpMsg::connect_status* status);
-
-	void Synchronize();
-	bool GetPeerConnectStatus(int id, int* frame);
-	bool IsInitialized() { return _udp != NULL; }
-	bool IsSynchronized() { return _current_state == Running; }
-	bool IsRunning() { return _current_state == Running; }
-	void SendInput(GameInput& input);
-	void SendInputAck();
-	bool HandlesMsg(sockaddr_in& from, UdpMsg* msg);
-	void OnMsg(UdpMsg* msg, int len);
-	void Disconnect();
-
-	void GetNetworkStats(struct GGPONetworkStats* stats);
-	bool GetEvent(UdpProtocol::Event& e);
-	void GGPONetworkStats(Stats* stats);
-	void SetLocalFrameNumber(int num);
-	int RecommendFrameDelay();
-
-	void SetDisconnectTimeout(int timeout);
-	void SetDisconnectNotifyStart(int timeout);
-
-protected:
-	enum State {
-		Syncing,
-		Synchronzied,
-		Running,
-		Disconnected
-	};
-	struct QueueEntry {
+struct udp_protocol_QueueEntry
+{
 		int         queue_time;
 		sockaddr_in dest_addr;
 		UdpMsg* msg;
+};
 
-		QueueEntry() {}
-		QueueEntry(int time, sockaddr_in& dst, UdpMsg* m) : queue_time(time), dest_addr(dst), msg(m) {}
-	};
-
-	bool CreateSocket(int retries);
-	void UpdateNetworkStats(void);
-	void QueueEvent(const UdpProtocol::Event& evt);
-	void ClearSendQueue(void);
-	void Log(const char* fmt, ...);
-	void LogMsg(const char* prefix, UdpMsg* msg);
-	void LogEvent(const char* prefix, const UdpProtocol::Event& evt);
-	void SendSyncRequest();
-	void SendMsg(UdpMsg* msg);
-	void PumpSendQueue();
-	void DispatchMsg(uint8* buffer, int len);
-	void SendPendingOutput();
-	bool OnInvalid(UdpMsg* msg, int len);
-	bool OnSyncRequest(UdpMsg* msg, int len);
-	bool OnSyncReply(UdpMsg* msg, int len);
-	bool OnInput(UdpMsg* msg, int len);
-	bool OnInputAck(UdpMsg* msg, int len);
-	bool OnQualityReport(UdpMsg* msg, int len);
-	bool OnQualityReply(UdpMsg* msg, int len);
-	bool OnKeepAlive(UdpMsg* msg, int len);
-
-protected:
+struct UdpProtocol
+{
 	/*
 	 * Network transmission information
 	 */
@@ -154,7 +101,7 @@ protected:
 		sockaddr_in dest_addr;
 		UdpMsg* msg;
 	}              _oo_packet;
-	RingBuffer<QueueEntry, 64> _send_queue;
+	RingBuffer<udp_protocol_QueueEntry, 64> _send_queue;
 
 	/*
 	 * Stats
@@ -168,10 +115,10 @@ protected:
 	/*
 	 * The state machine
 	 */
-	UdpMsg::connect_status* _local_connect_status;
-	UdpMsg::connect_status _peer_connect_status[UDP_MSG_MAX_PLAYERS];
+	UdpMsg_connect_status* _local_connect_status;
+	UdpMsg_connect_status _peer_connect_status[UDP_MSG_MAX_PLAYERS];
 
-	State          _current_state;
+	udp_protocol_State          _current_state;
 	union {
 		struct {
 			uint32   roundtrips_remaining;
@@ -216,7 +163,48 @@ protected:
 	/*
 	 * Event queue
 	 */
-	RingBuffer<UdpProtocol::Event, 64>  _event_queue;
+	RingBuffer<udp_protocol_Event, 64>  _event_queue;
 };
 
+
+	void UdpProtocol_ctor(UdpProtocol *protocol);
+	void UdpProtocol_dtor(UdpProtocol *protocol);
+
+	bool UdpProtocol_OnLoopPoll(UdpProtocol *protocol);
+
+
+	void UdpProtocol_Init(UdpProtocol *protocol, Udp* udp, int queue, char* ip, u_short port, UdpMsg_connect_status* status);
+
+	void UdpProtocol_Synchronize(UdpProtocol *protocol);
+	bool UdpProtocol_GetPeerConnectStatus(UdpProtocol *protocol, int id, int* frame);
+	inline bool UdpProtocol_IsInitialized(UdpProtocol *protocol) { return protocol->_udp != NULL; }
+	inline bool UdpProtocol_IsSynchronized(UdpProtocol *protocol) { return protocol->_current_state == UdpProtocol_Running; }
+	inline bool UdpProtocol_IsRunning(UdpProtocol *protocol) { return protocol->_current_state == UdpProtocol_Running; }
+	void UdpProtocol_SendInput(UdpProtocol *protocol, GameInput& input);
+	void UdpProtocol_SendInputAck(UdpProtocol *protocol);
+	bool UdpProtocol_HandlesMsg(UdpProtocol *protocol, sockaddr_in& from, UdpMsg* msg);
+	void UdpProtocol_OnMsg(UdpProtocol *protocol, UdpMsg* msg, int len);
+	void UdpProtocol_Disconnect(UdpProtocol *protocol);
+
+	void UdpProtocol_GetNetworkStats(UdpProtocol *protocol, struct GGPONetworkStats* stats);
+	bool UdpProtocol_GetEvent(UdpProtocol *protocol, udp_protocol_Event& e);
+	void UdpProtocol_GGPONetworkStats(UdpProtocol *protocol, udp_protocol_Stats* stats);
+	void UdpProtocol_SetLocalFrameNumber(UdpProtocol *protocol, int num);
+	int UdpProtocol_RecommendFrameDelay(UdpProtocol *protocol);
+
+	void UdpProtocol_SetDisconnectTimeout(UdpProtocol *protocol, int timeout);
+	void UdpProtocol_SetDisconnectNotifyStart(UdpProtocol *protocol, int timeout);
+
+	bool UdpProtocol_CreateSocket(UdpProtocol *protocol, int retries);
+	void UdpProtocol_UpdateNetworkStats(UdpProtocol *protocol);
+	void UdpProtocol_QueueEvent(UdpProtocol *protocol, const udp_protocol_Event& evt);
+	void UdpProtocol_ClearSendQueue(UdpProtocol *protocol);
+	void UdpProtocol_Log(UdpProtocol *protocol, const char* fmt, ...);
+	void UdpProtocol_LogMsg(UdpProtocol *protocol, const char* prefix, UdpMsg* msg);
+	void UdpProtocol_LogEvent(UdpProtocol *protocol, const char* prefix, const udp_protocol_Event& evt);
+	void UdpProtocol_SendSyncRequest(UdpProtocol *protocol);
+	void UdpProtocol_SendMsg(UdpProtocol *protocol, UdpMsg* msg);
+	void UdpProtocol_PumpSendQueue(UdpProtocol *protocol);
+	void UdpProtocol_DispatchMsg(UdpProtocol *protocol, uint8* buffer, int len);
+	void UdpProtocol_SendPendingOutput(UdpProtocol *protocol);
 #endif

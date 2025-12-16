@@ -22,14 +22,16 @@
  */
 
 #include "sync.h"
+#include "network/udp_msg.h"
 
 static int _sync_FindSavedFrameIndex(Sync* sync, int frame);
 static bool _sync_CreateQueues(Sync* sync, sync_Config* config);
 static bool _sync_CheckSimulationConsistency(Sync* sync, int* seekTo);
 static void _sync_ResetPrediction(Sync* sync, int frameNumber);
 
-void sync_ctor(Sync* sync, UdpMsg::connect_status* connect_status)
+void sync_ctor(Sync* sync, UdpMsg_connect_status* connect_status)
 {
+    memset(sync, 0, sizeof(Sync));
 	sync->_local_connect_status = connect_status;
 	sync->_input_queues = NULL;
         
@@ -267,6 +269,7 @@ static bool _sync_CreateQueues(Sync* sync, sync_Config *config)
 {
    delete [] sync->_input_queues;
    sync->_input_queues = new InputQueue[sync->_config.num_players];
+   memset(sync->_input_queues, 0, sizeof(InputQueue) * sync->_config.num_players);
 
    for (int i = 0; i < sync->_config.num_players; i++) {
       input_queue_Init(&sync->_input_queues[i], i, sync->_config.input_size);

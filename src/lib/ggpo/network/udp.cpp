@@ -24,8 +24,7 @@
 #include "types.h"
 #include "udp.h"
 
-SOCKET
-CreateSocket(uint16 bind_port, int retries)
+static SOCKET CreateSocket(uint16 bind_port, int retries)
 {
 	SOCKET s;
 	sockaddr_in sin;
@@ -53,35 +52,34 @@ CreateSocket(uint16 bind_port, int retries)
 	return INVALID_SOCKET;
 }
 
-Udp::Udp() :
-	_socket(INVALID_SOCKET)
+void udp_ctor(Udp* udp)
 {
+	memset(udp, 0, sizeof(Udp));
+	udp->_socket = INVALID_SOCKET;
 }
 
-Udp::~Udp(void)
+void udp_dtor(Udp* udp)
 {
-	if (_socket != INVALID_SOCKET) {
-		closesocket(_socket);
-		_socket = INVALID_SOCKET;
+	if (udp->_socket != INVALID_SOCKET) {
+		closesocket(udp->_socket);
+		udp->_socket = INVALID_SOCKET;
 	}
 }
 
-void
-Udp::Init(uint16 port, UdpOnMsgFn on_msg_callback, void* user_data)
+void udp_Init(Udp* udp, uint16 port, UdpOnMsgFn on_msg_callback, void* user_data)
 {
-	_user_data = user_data;
-	_on_msg_callback = on_msg_callback;
+	udp->_user_data = user_data;
+	udp->_on_msg_callback = on_msg_callback;
 
-	Log("binding udp socket to port %d.\n", port);
-	_socket = CreateSocket(port, 0);
+	udp_Log("binding udp socket to port %d.\n", port);
+	udp->_socket = CreateSocket(port, 0);
 }
 
-void
-Udp::SendTo(char* buffer, int len, int flags, struct sockaddr* dst, int destlen)
+void udp_SendTo(Udp* udp, char* buffer, int len, int flags, struct sockaddr* dst, int destlen)
 {
 	struct sockaddr_in* to = (struct sockaddr_in*)dst;
 
-	int res = sendto(_socket, buffer, len, flags, dst, destlen);
+	int res = sendto(udp->_socket, buffer, len, flags, dst, destlen);
 	if (res == SOCKET_ERROR) {
 		DWORD err = WSAGetLastError();
 		Log("unknown error in sendto (erro: %d  wsaerr: %d).\n", res, err);
@@ -91,8 +89,7 @@ Udp::SendTo(char* buffer, int len, int flags, struct sockaddr* dst, int destlen)
 	Log("sent packet length %d to %s:%d (ret:%d).\n", len, inet_ntop(AF_INET, (void*)&to->sin_addr, dst_ip, ARRAY_SIZE(dst_ip)), ntohs(to->sin_port), res);
 }
 
-bool
-Udp::OnLoopPoll()
+bool udp_OnLoopPoll(Udp *udp)
 {
 	uint8          recv_buf[MAX_UDP_PACKET_SIZE];
 	sockaddr_in    recv_addr;
@@ -100,7 +97,7 @@ Udp::OnLoopPoll()
 
 	for (;;) {
 		recv_addr_len = sizeof(recv_addr);
-		int len = recvfrom(_socket, (char*)recv_buf, MAX_UDP_PACKET_SIZE, 0, (struct sockaddr*)&recv_addr, &recv_addr_len);
+		int len = recvfrom(udp->_socket, (char*)recv_buf, MAX_UDP_PACKET_SIZE, 0, (struct sockaddr*)&recv_addr, &recv_addr_len);
 
 		// TODO: handle len == 0... indicates a disconnect.
 
@@ -115,15 +112,13 @@ Udp::OnLoopPoll()
 			char src_ip[1024];
 			Log("recvfrom returned (len:%d  from:%s:%d).\n", len, inet_ntop(AF_INET, (void*)&recv_addr.sin_addr, src_ip, ARRAY_SIZE(src_ip)), ntohs(recv_addr.sin_port));
 			UdpMsg* msg = (UdpMsg*)recv_buf;
-			_on_msg_callback(recv_addr, msg, len, _user_data);
+			udp->_on_msg_callback(recv_addr, msg, len, udp->_user_data);
 		}
 	}
 	return true;
 }
 
-
-void
-Udp::Log(const char* fmt, ...)
+void udp_Log(const char* fmt, ...)
 {
 	char buf[1024];
 	size_t offset;
