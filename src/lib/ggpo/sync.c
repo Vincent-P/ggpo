@@ -52,7 +52,7 @@ void sync_dtor(Sync* sync)
    for (int i = 0; i < ARRAY_SIZE(sync->_savedstate.frames); i++) {
       sync->_callbacks.free_buffer(sync->_savedstate.frames[i].buf);
    }
-   delete [] sync->_input_queues;
+   free(sync->_input_queues);
    sync->_input_queues = NULL;
 }
 
@@ -83,7 +83,7 @@ void sync_SetFrameDelay(Sync* sync, int queue, int delay)
         input_queue_SetFrameDelay(&sync->_input_queues[queue], delay);
 }
 
-bool sync_AddLocalInput(Sync* sync, int queue, GameInput& input)
+bool sync_AddLocalInput(Sync* sync, int queue, GameInput* input)
 {
    int frames_behind = sync->_framecount - sync->_last_confirmed_frame; 
    if (sync->_framecount >= sync->_max_prediction_frames && frames_behind >= sync->_max_prediction_frames) {
@@ -96,15 +96,15 @@ bool sync_AddLocalInput(Sync* sync, int queue, GameInput& input)
    }
 
    Log("Sending undelayed local frame %d to queue %d.\n", sync->_framecount, queue);
-   input.frame = sync->_framecount;
-   input_queue_AddInput(&sync->_input_queues[queue], &input);
+   input->frame = sync->_framecount;
+   input_queue_AddInput(&sync->_input_queues[queue], input);
 
    return true;
 }
 
-void sync_AddRemoteInput(Sync* sync, int queue, GameInput& input)
+void sync_AddRemoteInput(Sync* sync, int queue, GameInput* input)
 {
-    input_queue_AddInput(&sync->_input_queues[queue], &input);
+    input_queue_AddInput(&sync->_input_queues[queue], input);
 }
 
 int sync_GetConfirmedInputs(Sync* sync, void* values, int size, int frame)
@@ -269,10 +269,8 @@ static int _sync_FindSavedFrameIndex(Sync* sync, int frame)
 
 static bool _sync_CreateQueues(Sync* sync, sync_Config *config)
 {
-   delete [] sync->_input_queues;
-   sync->_input_queues = new InputQueue[sync->_config.num_players];
-   memset(sync->_input_queues, 0, sizeof(InputQueue) * sync->_config.num_players);
-
+   free(sync->_input_queues);
+   sync->_input_queues = calloc(sync->_config.num_players, sizeof(InputQueue));
    for (int i = 0; i < sync->_config.num_players; i++) {
       input_queue_Init(&sync->_input_queues[i], i, sync->_config.input_size);
    }

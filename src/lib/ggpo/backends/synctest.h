@@ -37,6 +37,7 @@
       int         cbuf;
       GameInput   input;
    };
+   typedef struct synctest_SavedInfo synctest_SavedInfo;
 
 struct SyncTestBackend {
 	GGPOSessionHeader _header;
@@ -55,6 +56,8 @@ struct SyncTestBackend {
    RingBuffer _saved_frames_ring;
    synctest_SavedInfo  _saved_frames[32];
 };
+
+   typedef struct SyncTestBackend SyncTestBackend;
 
    void synctest_ctor(SyncTestBackend *synctest, GGPOSessionCallbacks *cb, char *gamename, int frames, int num_players);
    void synctest_dtor(SyncTestBackend *synctest);
@@ -77,7 +80,7 @@ struct SyncTestBackend {
    void synctest_RaiseSyncError(SyncTestBackend *synctest, const char *fmt, ...);
    void synctest_BeginLog(SyncTestBackend *synctest, int saving);
    void synctest_EndLog(SyncTestBackend *synctest);
-   void synctest_LogSaveStates(SyncTestBackend *synctest, synctest_SavedInfo &info);
+   void synctest_LogSaveStates(SyncTestBackend *synctest, synctest_SavedInfo *info);
 
 #endif
 

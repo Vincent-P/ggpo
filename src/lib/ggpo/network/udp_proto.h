@@ -39,6 +39,7 @@ struct udp_protocol_Stats {
 		int                 send_queue_len;
 		udp_Stats          udp;
 };
+typedef struct udp_protocol_Stats udp_protocol_Stats;
 
 enum udp_protocol_EventType {
 			UdpProtocol_Event_Unknown = -1,
@@ -50,6 +51,7 @@ enum udp_protocol_EventType {
 			UdpProtocol_Event_NetworkInterrupted,
 			UdpProtocol_Event_NetworkResumed,
 };
+typedef enum udp_protocol_EventType udp_protocol_EventType;
 
 struct udp_protocol_Event {
 		udp_protocol_EventType      type;
@@ -66,7 +68,7 @@ struct udp_protocol_Event {
 			} network_interrupted;
 		} u;
 };
-
+typedef struct udp_protocol_Event udp_protocol_Event;
 
 enum udp_protocol_State
 {
@@ -75,6 +77,7 @@ enum udp_protocol_State
 		UdpProtocol_Running,
 		UdpProtocol_Disconnected
 };
+typedef enum udp_protocol_State udp_protocol_State;
 
 struct udp_protocol_QueueEntry
 {
@@ -82,6 +85,7 @@ struct udp_protocol_QueueEntry
 		sockaddr_in dest_addr;
 		UdpMsg* msg;
 };
+typedef struct udp_protocol_QueueEntry udp_protocol_QueueEntry;
 
 struct UdpProtocol
 {
@@ -168,6 +172,7 @@ struct UdpProtocol
 	RingBuffer  _event_queue_ring;
 	udp_protocol_Event  _event_queue[64];
 };
+typedef struct UdpProtocol UdpProtocol;
 
 
 	void UdpProtocol_ctor(UdpProtocol *protocol);
@@ -183,14 +188,14 @@ struct UdpProtocol
 	inline bool UdpProtocol_IsInitialized(UdpProtocol *protocol) { return protocol->_udp != NULL; }
 	inline bool UdpProtocol_IsSynchronized(UdpProtocol *protocol) { return protocol->_current_state == UdpProtocol_Running; }
 	inline bool UdpProtocol_IsRunning(UdpProtocol *protocol) { return protocol->_current_state == UdpProtocol_Running; }
-	void UdpProtocol_SendInput(UdpProtocol *protocol, GameInput& input);
+	void UdpProtocol_SendInput(UdpProtocol *protocol, GameInput* input);
 	void UdpProtocol_SendInputAck(UdpProtocol *protocol);
-	bool UdpProtocol_HandlesMsg(UdpProtocol *protocol, sockaddr_in& from, UdpMsg* msg);
+	bool UdpProtocol_HandlesMsg(UdpProtocol *protocol, sockaddr_in* from, UdpMsg* msg);
 	void UdpProtocol_OnMsg(UdpProtocol *protocol, UdpMsg* msg, int len);
 	void UdpProtocol_Disconnect(UdpProtocol *protocol);
 
 	void UdpProtocol_GetNetworkStats(UdpProtocol *protocol, struct GGPONetworkStats* stats);
-	bool UdpProtocol_GetEvent(UdpProtocol *protocol, udp_protocol_Event& e);
+	bool UdpProtocol_GetEvent(UdpProtocol *protocol, udp_protocol_Event* e);
 	void UdpProtocol_GGPONetworkStats(UdpProtocol *protocol, udp_protocol_Stats* stats);
 	void UdpProtocol_SetLocalFrameNumber(UdpProtocol *protocol, int num);
 	int UdpProtocol_RecommendFrameDelay(UdpProtocol *protocol);
@@ -200,11 +205,11 @@ struct UdpProtocol
 
 	bool UdpProtocol_CreateSocket(UdpProtocol *protocol, int retries);
 	void UdpProtocol_UpdateNetworkStats(UdpProtocol *protocol);
-	void UdpProtocol_QueueEvent(UdpProtocol *protocol, const udp_protocol_Event& evt);
+	void UdpProtocol_QueueEvent(UdpProtocol *protocol, const udp_protocol_Event* evt);
 	void UdpProtocol_ClearSendQueue(UdpProtocol *protocol);
 	void UdpProtocol_Log(UdpProtocol *protocol, const char* fmt, ...);
 	void UdpProtocol_LogMsg(UdpProtocol *protocol, const char* prefix, UdpMsg* msg);
-	void UdpProtocol_LogEvent(UdpProtocol *protocol, const char* prefix, const udp_protocol_Event& evt);
+	void UdpProtocol_LogEvent(UdpProtocol *protocol, const char* prefix, const udp_protocol_Event* evt);
 	void UdpProtocol_SendSyncRequest(UdpProtocol *protocol);
 	void UdpProtocol_SendMsg(UdpProtocol *protocol, UdpMsg* msg);
 	void UdpProtocol_PumpSendQueue(UdpProtocol *protocol);

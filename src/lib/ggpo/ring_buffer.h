@@ -17,6 +17,7 @@ struct RingBuffer
    int      _size;
    int _N;
 };
+typedef struct RingBuffer RingBuffer;
 
 inline void ring_ctor(RingBuffer* ring, int N)
 {

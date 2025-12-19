@@ -43,7 +43,7 @@ static SOCKET CreateSocket(uint16 bind_port, int retries)
 	sin.sin_addr.s_addr = htonl(INADDR_ANY);
 	for (port = bind_port; port <= bind_port + retries; port++) {
 		sin.sin_port = htons(port);
-		if (bind(s, (sockaddr*)&sin, sizeof sin) != SOCKET_ERROR) {
+		if (bind(s, (struct sockaddr*)&sin, sizeof sin) != SOCKET_ERROR) {
 			Log("Udp bound to port: %d.\n", port);
 			return s;
 		}
@@ -112,7 +112,7 @@ bool udp_OnLoopPoll(Udp *udp)
 			char src_ip[1024];
 			Log("recvfrom returned (len:%d  from:%s:%d).\n", len, inet_ntop(AF_INET, (void*)&recv_addr.sin_addr, src_ip, ARRAY_SIZE(src_ip)), ntohs(recv_addr.sin_port));
 			UdpMsg* msg = (UdpMsg*)recv_buf;
-			udp->_on_msg_callback(recv_addr, msg, len, udp->_user_data);
+			udp->_on_msg_callback(&recv_addr, msg, len, udp->_user_data);
 		}
 	}
 	return true;
@@ -124,11 +124,11 @@ void udp_Log(const char* fmt, ...)
 	size_t offset;
 	va_list args;
 
-	strcpy_s(buf, "udp | ");
+	strcpy(buf, "udp | ");
 	offset = strlen(buf);
 	va_start(args, fmt);
 	vsnprintf(buf + offset, ARRAY_SIZE(buf) - offset - 1, fmt, args);
 	buf[ARRAY_SIZE(buf) - 1] = '\0';
-	::Log(buf);
+	Log(buf);
 	va_end(args);
 }

@@ -64,7 +64,7 @@ void gameinput_log(GameInput const* input, char* prefix, bool show_frame)
 {
 	char buf[1024];
 	size_t c = strlen(prefix);
-	strcpy_s(buf, prefix);
+	strncpy(buf, prefix, c);
 	gameinput_desc(input, buf + c, ARRAY_SIZE(buf) - c, show_frame);
 	strncat_s(buf, ARRAY_SIZE(buf) - strlen(buf), "\n", 1);
 	Log(buf);

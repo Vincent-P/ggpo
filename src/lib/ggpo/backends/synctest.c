@@ -37,7 +37,7 @@ void synctest_ctor(SyncTestBackend *synctest, GGPOSessionCallbacks *cb, char *ga
    synctest->_running = false;
    synctest->_logfp = NULL;
    gameinput_erase(&synctest->_current_input);
-   strcpy_s(synctest->_game, gamename);
+   strcpy(synctest->_game, gamename);
    ring_ctor(&synctest->_saved_frames_ring, ARRAY_SIZE(synctest->_saved_frames));
 
    /*
@@ -163,7 +163,7 @@ synctest_IncrementFrame(SyncTestBackend *synctest)
          }
          int checksum = sync_GetLastSavedFrame(&synctest->_sync)->checksum;
          if (info.checksum != checksum) {
-            synctest_LogSaveStates(synctest, info);
+            synctest_LogSaveStates(synctest, &info);
             synctest_RaiseSyncError(synctest, "Checksum for frame %d does not match saved (%d != %d)", frame, checksum, info.checksum);
          }
          printf("Checksum %08d for frame %d matches.\n", checksum, info.frame);
@@ -225,11 +225,11 @@ synctest_EndLog(SyncTestBackend *synctest)
    }
 }
 void
-synctest_LogSaveStates(SyncTestBackend *synctest, synctest_SavedInfo &info)
+synctest_LogSaveStates(SyncTestBackend *synctest, synctest_SavedInfo *info)
 {
    char filename[MAX_PATH];
    sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-original.log", sync_GetFrameCount(&synctest->_sync));
-   synctest->_header._callbacks.log_game_state(filename, (unsigned char *)info.buf, info.cbuf);
+   synctest->_header._callbacks.log_game_state(filename, (unsigned char *)info->buf, info->cbuf);
 
    sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-replay.log", sync_GetFrameCount(&synctest->_sync));
    synctest->_header._callbacks.log_game_state(filename, sync_GetLastSavedFrame(&synctest->_sync)->buf, sync_GetLastSavedFrame(&synctest->_sync)->cbuf);

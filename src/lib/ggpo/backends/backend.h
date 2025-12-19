@@ -32,6 +32,7 @@ enum GGPOSessionType {
 	SESSION_SPECTATOR,
 	SESSION_SYNCTEST,
 };
+typedef enum GGPOSessionType GGPOSessionType;
 
 struct GGPOSession;
 struct GGPOSessionHeader
@@ -39,6 +40,7 @@ struct GGPOSessionHeader
 	GGPOSessionType _session_type;
    GGPOSessionCallbacks   _callbacks;
 };
+typedef struct GGPOSessionHeader GGPOSessionHeader;
 
 #endif
 

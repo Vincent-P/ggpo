@@ -24,7 +24,7 @@
 #include "spectator.h"
 
 
-static void SpectatorBackend_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void* user_data);
+static void SpectatorBackend_OnMsg(sockaddr_in* from, UdpMsg* msg, int len, void* user_data);
 
 void spec_ctor(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
 	const char* gamename,
@@ -92,7 +92,7 @@ spec_SyncInput(SpectatorBackend* spec, void* values,
 		return GGPO_ERRORCODE_NOT_SYNCHRONIZED;
 	}
 
-	GameInput& input = spec->_inputs[spec->_next_input_to_send % SPECTATOR_FRAME_BUFFER_SIZE];
+	GameInput const input = spec->_inputs[spec->_next_input_to_send % SPECTATOR_FRAME_BUFFER_SIZE];
 	if (input.frame < spec->_next_input_to_send) {
 		// Haven't received the input from the host yet.  Wait
 		return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
@@ -127,17 +127,17 @@ void
 spec_PollUdpProtocolEvents(SpectatorBackend* spec)
 {
 	udp_protocol_Event evt;
-	while (UdpProtocol_GetEvent(&spec->_host, evt)) {
-		spec_OnUdpProtocolEvent(spec, evt);
+	while (UdpProtocol_GetEvent(&spec->_host, &evt)) {
+		spec_OnUdpProtocolEvent(spec, &evt);
 	}
 }
 
 void
-spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event& evt)
+spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event* evt)
 {
 	GGPOEvent info;
 
-	switch (evt.type) {
+	switch (evt->type) {
 	case UdpProtocol_Event_Connected:
 		info.code = GGPO_EVENTCODE_CONNECTED_TO_PEER;
 		info.u.connected.player = 0;
@@ -146,8 +146,8 @@ spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event& evt)
 	case UdpProtocol_Event_Synchronizing:
 		info.code = GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
 		info.u.synchronizing.player = 0;
-		info.u.synchronizing.count = evt.u.synchronizing.count;
-		info.u.synchronizing.total = evt.u.synchronizing.total;
+		info.u.synchronizing.count = evt->u.synchronizing.count;
+		info.u.synchronizing.total = evt->u.synchronizing.total;
 		spec->_header._callbacks.on_event(&info);
 		break;
 	case UdpProtocol_Event_Synchronzied:
@@ -165,7 +165,7 @@ spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event& evt)
 	case UdpProtocol_Event_NetworkInterrupted:
 		info.code = GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
 		info.u.connection_interrupted.player = 0;
-		info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
+		info.u.connection_interrupted.disconnect_timeout = evt->u.network_interrupted.disconnect_timeout;
 		spec->_header._callbacks.on_event(&info);
 		break;
 
@@ -182,7 +182,7 @@ spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event& evt)
 		break;
 
 	case UdpProtocol_Event_Input:
-		GameInput& input = evt.u.input.input;
+		GameInput const input = evt->u.input.input;
 
 		UdpProtocol_SetLocalFrameNumber(&spec->_host, input.frame);
 		UdpProtocol_SendInputAck(&spec->_host);
@@ -191,7 +191,7 @@ spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event& evt)
 	}
 }
 
-static void SpectatorBackend_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void* user_data)
+static void SpectatorBackend_OnMsg(sockaddr_in*from, UdpMsg* msg, int len, void* user_data)
 {
 	SpectatorBackend* backend = (SpectatorBackend*)user_data;
 	if (UdpProtocol_HandlesMsg(&backend->_host, from, msg)) {

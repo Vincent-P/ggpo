@@ -10,26 +10,26 @@ set(GGPO_LIB_INC_NOFILTER
 )
 
 set(GGPO_LIB_SRC_NOFILTER
-	"lib/ggpo/bitvector.cpp"
-	"lib/ggpo/game_input.cpp"
-	"lib/ggpo/input_queue.cpp"
-	"lib/ggpo/log.cpp"
-	"lib/ggpo/main.cpp"
-	"lib/ggpo/sync.cpp"
-	"lib/ggpo/timesync.cpp"
+	"lib/ggpo/bitvector.c"
+	"lib/ggpo/game_input.c"
+	"lib/ggpo/input_queue.c"
+	"lib/ggpo/log.c"
+	"lib/ggpo/main.c"
+	"lib/ggpo/sync.c"
+	"lib/ggpo/timesync.c"
 )
 
 if(UNIX)
 	set(GGPO_LIB_SRC_NOFILTER
 		${GGPO_LIB_SRC_NOFILTER}
-		"lib/ggpo/platform_linux.cpp"
+		"lib/ggpo/platform_linux.c"
 	)
 endif()
 
 if(WIN32)
 	set(GGPO_LIB_SRC_NOFILTER
 		${GGPO_LIB_SRC_NOFILTER}
-		"lib/ggpo/platform_windows.cpp"
+		"lib/ggpo/platform_windows.c"
 	)
 endif()
 
@@ -40,8 +40,8 @@ set(GGPO_LIB_INC_NETWORK
 )
 
 set(GGPO_LIB_SRC_NETWORK
-	"lib/ggpo/network/udp.cpp"
-	"lib/ggpo/network/udp_proto.cpp"
+	"lib/ggpo/network/udp.c"
+	"lib/ggpo/network/udp_proto.c"
 )
 
 set(GGPO_LIB_INC_BACKENDS
@@ -52,9 +52,9 @@ set(GGPO_LIB_INC_BACKENDS
 )
 
 set(GGPO_LIB_SRC_BACKENDS
-	"lib/ggpo/backends/p2p.cpp"
-	"lib/ggpo/backends/spectator.cpp"
-	"lib/ggpo/backends/synctest.cpp"
+	"lib/ggpo/backends/p2p.c"
+	"lib/ggpo/backends/spectator.c"
+	"lib/ggpo/backends/synctest.c"
 )
 
 set(GGPO_PUBLIC_INC

@@ -27,7 +27,7 @@ static const int RECOMMENDATION_INTERVAL = 240;
 static const int DEFAULT_DISCONNECT_TIMEOUT = 5000;
 static const int DEFAULT_DISCONNECT_NOTIFY_START = 750;
 
-static void p2p_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void* user_data);
+static void p2p_OnMsg(sockaddr_in* from, UdpMsg* msg, int len, void* user_data);
 
 
 
@@ -63,7 +63,7 @@ void p2p_ctor(Peer2PeerBackend *p2p, GGPOSessionCallbacks *cb, const char *gamen
 	udp_ctor(&p2p->_udp);
 	udp_Init(&p2p->_udp, localport, p2p_OnMsg, p2p);
 
-	p2p->_endpoints = new UdpProtocol[p2p->_num_players];
+	p2p->_endpoints = calloc(p2p->_num_players, sizeof(UdpProtocol));
 	for (int i = 0; i < p2p->_num_players; ++i) {
 		UdpProtocol_ctor(&p2p->_endpoints[i]);
 	}
@@ -86,7 +86,7 @@ void p2p_dtor(Peer2PeerBackend *p2p)
 	for (int i = 0; i < p2p->_num_players; ++i) {
 		UdpProtocol_dtor(&p2p->_endpoints[i]);
 	}
-	delete[] p2p->_endpoints;
+	free(p2p->_endpoints);
 	sync_dtor(&p2p->_sync);
 	udp_dtor(&p2p->_udp);
 }
@@ -174,7 +174,7 @@ p2p_DoPoll(Peer2PeerBackend *p2p, int timeout)
 						input.size = p2p->_input_size * p2p->_num_players;
 						sync_GetConfirmedInputs(&p2p->_sync, input.bits, p2p->_input_size * p2p->_num_players, p2p->_next_spectator_frame);
 						for (int i = 0; i < p2p->_num_spectators; i++) {
-							UdpProtocol_SendInput(&p2p->_spectators[i], input);
+							UdpProtocol_SendInput(&p2p->_spectators[i], &input);
 						}
 						p2p->_next_spectator_frame++;
 					}
@@ -325,7 +325,7 @@ p2p_AddLocalInput(Peer2PeerBackend *p2p, GGPOPlayerHandle player,
 	gameinput_init(&input, -1, (char*)values, size);
 
 	// Feed the input for the current frame into the synchronzation layer.
-	if (!sync_AddLocalInput(&p2p->_sync, queue, input)) {
+	if (!sync_AddLocalInput(&p2p->_sync, queue, &input)) {
 		return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
 	}
 
@@ -340,7 +340,7 @@ p2p_AddLocalInput(Peer2PeerBackend *p2p, GGPOPlayerHandle player,
 		// Send the input to all the remote players.
 		for (int i = 0; i < p2p->_num_players; i++) {
 			if (UdpProtocol_IsInitialized(&p2p->_endpoints[i])) {
-				UdpProtocol_SendInput(&p2p->_endpoints[i], input);
+				UdpProtocol_SendInput(&p2p->_endpoints[i], &input);
 			}
 		}
 	}
@@ -384,7 +384,7 @@ p2p_PollSyncEvents(Peer2PeerBackend *p2p)
 {
 	sync_Event e;
 	while (sync_GetEvent(&p2p->_sync, &e)) {
-		p2p_OnSyncEvent(p2p, e);
+		p2p_OnSyncEvent(p2p, &e);
 	}
 	return;
 }
@@ -394,32 +394,32 @@ p2p_PollUdpProtocolEvents(Peer2PeerBackend *p2p)
 {
 	udp_protocol_Event evt;
 	for (int i = 0; i < p2p->_num_players; i++) {
-		while (UdpProtocol_GetEvent(&p2p->_endpoints[i], evt)) {
-			p2p_OnUdpProtocolPeerEvent(p2p, evt, i);
+		while (UdpProtocol_GetEvent(&p2p->_endpoints[i], &evt)) {
+			p2p_OnUdpProtocolPeerEvent(p2p, &evt, i);
 		}
 	}
 	for (int i = 0; i < p2p->_num_spectators; i++) {
-		while (UdpProtocol_GetEvent(&p2p->_spectators[i], evt)) {
-			p2p_OnUdpProtocolSpectatorEvent(p2p, evt, i);
+		while (UdpProtocol_GetEvent(&p2p->_spectators[i], &evt)) {
+			p2p_OnUdpProtocolSpectatorEvent(p2p, &evt, i);
 		}
 	}
 }
 
 void
-p2p_OnUdpProtocolPeerEvent(Peer2PeerBackend *p2p, udp_protocol_Event& evt, int queue)
+p2p_OnUdpProtocolPeerEvent(Peer2PeerBackend *p2p, udp_protocol_Event* evt, int queue)
 {
 	p2p_OnUdpProtocolEvent(p2p, evt, p2p_QueueToPlayerHandle(p2p, queue));
-	switch (evt.type) {
+	switch (evt->type) {
 	case UdpProtocol_Event_Input:
 		if (!p2p->_local_connect_status[queue].disconnected) {
 			int current_remote_frame = p2p->_local_connect_status[queue].last_frame;
-			int new_remote_frame = evt.u.input.input.frame;
+			int new_remote_frame = evt->u.input.input.frame;
 			ASSERT(current_remote_frame == -1 || new_remote_frame == (current_remote_frame + 1));
 
-			sync_AddRemoteInput(&p2p->_sync, queue, evt.u.input.input);
+			sync_AddRemoteInput(&p2p->_sync, queue, &evt->u.input.input);
 			// Notify the other endpoints which frame we received from a peer
-			Log("setting remote connect status for queue %d to %d\n", queue, evt.u.input.input.frame);
-			p2p->_local_connect_status[queue].last_frame = evt.u.input.input.frame;
+			Log("setting remote connect status for queue %d to %d\n", queue, evt->u.input.input.frame);
+			p2p->_local_connect_status[queue].last_frame = evt->u.input.input.frame;
 		}
 		break;
 
@@ -431,14 +431,14 @@ p2p_OnUdpProtocolPeerEvent(Peer2PeerBackend *p2p, udp_protocol_Event& evt, int q
 
 
 void
-p2p_OnUdpProtocolSpectatorEvent(Peer2PeerBackend *p2p, udp_protocol_Event& evt, int queue)
+p2p_OnUdpProtocolSpectatorEvent(Peer2PeerBackend *p2p, udp_protocol_Event* evt, int queue)
 {
 	GGPOPlayerHandle handle = p2p_QueueToSpectatorHandle(p2p, queue);
 	p2p_OnUdpProtocolEvent(p2p, evt, handle);
 
 	GGPOEvent info;
 
-	switch (evt.type) {
+	switch (evt->type) {
 	case UdpProtocol_Event_Disconnected:
 		UdpProtocol_Disconnect(&p2p->_spectators[queue]);
 
@@ -451,11 +451,11 @@ p2p_OnUdpProtocolSpectatorEvent(Peer2PeerBackend *p2p, udp_protocol_Event& evt, 
 }
 
 void
-p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event& evt, GGPOPlayerHandle handle)
+p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event* evt, GGPOPlayerHandle handle)
 {
 	GGPOEvent info;
 
-	switch (evt.type) {
+	switch (evt->type) {
 	case UdpProtocol_Event_Connected:
 		info.code = GGPO_EVENTCODE_CONNECTED_TO_PEER;
 		info.u.connected.player = handle;
@@ -464,8 +464,8 @@ p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event& evt, GGPOPlaye
 	case UdpProtocol_Event_Synchronizing:
 		info.code = GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
 		info.u.synchronizing.player = handle;
-		info.u.synchronizing.count = evt.u.synchronizing.count;
-		info.u.synchronizing.total = evt.u.synchronizing.total;
+		info.u.synchronizing.count = evt->u.synchronizing.count;
+		info.u.synchronizing.total = evt->u.synchronizing.total;
 		p2p->_header._callbacks.on_event(&info);
 		break;
 	case UdpProtocol_Event_Synchronzied:
@@ -479,7 +479,7 @@ p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event& evt, GGPOPlaye
 	case UdpProtocol_Event_NetworkInterrupted:
 		info.code = GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
 		info.u.connection_interrupted.player = handle;
-		info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
+		info.u.connection_interrupted.disconnect_timeout = evt->u.network_interrupted.disconnect_timeout;
 		p2p->_header._callbacks.on_event(&info);
 		break;
 
@@ -624,7 +624,7 @@ p2p_PlayerHandleToQueue(Peer2PeerBackend *p2p, GGPOPlayerHandle player, int* que
 }
 
 
-static void p2p_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void* user_data)
+static void p2p_OnMsg(sockaddr_in* from, UdpMsg* msg, int len, void* user_data)
 {
 	Peer2PeerBackend* backend = (Peer2PeerBackend*)user_data;
 	for (int i = 0; i < backend->_num_players; i++) {

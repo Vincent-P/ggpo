@@ -40,6 +40,7 @@ struct TimeSync
 	GameInput   _last_inputs[MIN_UNIQUE_FRAMES];
 	int         _next_prediction;
 };
+typedef struct TimeSync TimeSync;
 
 void timesync_init(TimeSync* timesync);
 void timesync_advance_frame(TimeSync* timesync, GameInput* input, int advantage, int radvantage);

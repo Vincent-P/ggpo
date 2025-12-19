@@ -47,6 +47,7 @@ struct InputQueue
 	GameInput            _inputs[INPUT_QUEUE_LENGTH];
 	GameInput            _prediction;
 };
+typedef struct InputQueue InputQueue;
 
 void input_queue_Init(InputQueue* queue, int id, int input_size);
 int input_queue_GetLastConfirmedFrame(InputQueue* queue);

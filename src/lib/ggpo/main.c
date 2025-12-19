@@ -30,7 +30,7 @@
 BOOL WINAPI
 DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
-   srand(Platform::GetCurrentTimeMS() + Platform::GetProcessID());
+   srand(Platform_GetCurrentTimeMS() + Platform_GetProcessID());
    return TRUE;
 }
 
@@ -52,7 +52,7 @@ ggpo_logv(GGPOSession *ggpo, const char *fmt, va_list args)
            synctest_Logv((SyncTestBackend*)ggpo, fmt, args);
        }
        else {
-           ::Logv(fmt, args);
+           Logv(fmt, args);
        }
    }
 }

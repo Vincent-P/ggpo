@@ -23,12 +23,13 @@ enum udp_msg_MsgType {
       UdpMsg_KeepAlive     = 6,
       UdpMsg_InputAck      = 7,
 };
-
+typedef enum udp_msg_MsgType udp_msg_MsgType;
 
 struct UdpMsg_connect_status {
       unsigned int   disconnected:1;
       int            last_frame:31;
 };
+typedef struct UdpMsg_connect_status UdpMsg_connect_status;
 
 struct UdpMsg
 {
@@ -75,6 +76,7 @@ struct UdpMsg
       } input_ack;
    } u;
 };
+typedef struct UdpMsg UdpMsg;
 
 inline void udp_msg_ctor(UdpMsg* msg, udp_msg_MsgType t) { memset(msg, 0, sizeof(UdpMsg)); msg->hdr.type = (uint8)t; }
 

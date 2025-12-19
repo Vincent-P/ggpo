@@ -41,13 +41,15 @@ struct GameInput
 	char     bits[GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS];
 };
 
+typedef struct GameInput GameInput;
+
 void gameinput_init(GameInput* input, int frame, char* bits, int size);
 inline bool gameinput_value(GameInput const* input, int i) { return (input->bits[i / 8] & (1 << (i % 8))) != 0; }
 inline void gameinput_set(GameInput* input, int i) { input->bits[i / 8] |= (1 << (i % 8)); }
 inline void gameinput_clear(GameInput* input, int i) { input->bits[i / 8] &= ~(1 << (i % 8)); }
 inline void gameinput_erase(GameInput* input) { memset(input->bits, 0, sizeof(input->bits)); }
-void gameinput_desc(GameInput const* input, char* buf, size_t buf_size, bool show_frame = true);
-void gameinput_log(GameInput const* input, char* prefix, bool show_frame = true);
-bool gameinput_equal(GameInput const* a, GameInput const* b, bool bitsonly = false);
+void gameinput_desc(GameInput const* input, char* buf, size_t buf_size, bool show_frame/*= true*/);
+void gameinput_log(GameInput const* input, char* prefix, bool show_frame/* = true */);
+bool gameinput_equal(GameInput const* a, GameInput const* b, bool bitsonly/* = false*/);
 
 #endif

@@ -29,10 +29,11 @@
 
 #define MAX_UDP_ENDPOINTS     16
 
-static const int MAX_UDP_PACKET_SIZE = 4096;
+#define MAX_UDP_PACKET_SIZE 4096
 
-struct UdpMsg;
-typedef void (*UdpOnMsgFn)(sockaddr_in &from, UdpMsg *msg, int len, void* user_data);
+typedef struct UdpMsg UdpMsg;
+typedef struct sockaddr_in sockaddr_in;
+typedef void (*UdpOnMsgFn)(sockaddr_in *from, UdpMsg *msg, int len, void* user_data);
 
 
 struct udp_Stats {
@@ -40,6 +41,7 @@ struct udp_Stats {
       int      packets_sent;
       float    kbps_sent;
 };
+typedef struct udp_Stats udp_Stats;
 
 struct Udp
 {
@@ -47,9 +49,10 @@ struct Udp
    SOCKET         _socket;
 
    // state management
-   void* _user_data = NULL;
-   UdpOnMsgFn      _on_msg_callback = NULL;
+   void* _user_data;
+   UdpOnMsgFn      _on_msg_callback;
 };
+typedef struct Udp Udp;
 
 void udp_Log(const char *fmt, ...);
 

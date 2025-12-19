@@ -44,6 +44,8 @@ struct SpectatorBackend  {
    GameInput             _inputs[SPECTATOR_FRAME_BUFFER_SIZE];
 };
 
+typedef struct SpectatorBackend SpectatorBackend;
+
    void spec_ctor(SpectatorBackend *spec, GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size, char *hostip, u_short hostport);
    void spec_dtor(SpectatorBackend *spec);
 
@@ -61,6 +63,6 @@ struct SpectatorBackend  {
    void spec_PollUdpProtocolEvents(SpectatorBackend *spec);
    void spec_CheckInitialSync(SpectatorBackend *spec);
 
-   void spec_OnUdpProtocolEvent(SpectatorBackend *spec, udp_protocol_Event &e);
+   void spec_OnUdpProtocolEvent(SpectatorBackend *spec, udp_protocol_Event *e);
 
 #endif

@@ -28,25 +28,25 @@ void Log(const char *fmt, ...)
 
 void Logv(const char *fmt, va_list args)
 {
-   if (!Platform::GetConfigBool("ggpo.log") || Platform::GetConfigBool("ggpo.log.ignore")) {
+   if (!Platform_GetConfigBool("ggpo.log") || Platform_GetConfigBool("ggpo.log.ignore")) {
       return;
    }
    if (!logfile) {
-      sprintf_s(logbuf, ARRAY_SIZE(logbuf), "log-%d.log", Platform::GetProcessID());
+      sprintf_s(logbuf, ARRAY_SIZE(logbuf), "log-%u.log", Platform_GetProcessID());
       fopen_s(&logfile, logbuf, "w");
    }
-   Logv(logfile, fmt, args);
+   LogvFile(logfile, fmt, args);
 }
 
-void Logv(FILE *fp, const char *fmt, va_list args)
+void LogvFile(FILE *fp, const char *fmt, va_list args)
 {
-   if (Platform::GetConfigBool("ggpo.log.timestamps")) {
+   if (Platform_GetConfigBool("ggpo.log.timestamps")) {
       static int start = 0;
       int t = 0;
       if (!start) {
-         start = Platform::GetCurrentTimeMS();
+         start = Platform_GetCurrentTimeMS();
       } else {
-         t = Platform::GetCurrentTimeMS() - start;
+         t = Platform_GetCurrentTimeMS() - start;
       }
       fprintf(fp, "%d.%03d : ", t / 1000, t % 1000);
    }

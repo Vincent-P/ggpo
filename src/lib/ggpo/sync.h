@@ -32,8 +32,8 @@
 
 #define MAX_PREDICTION_FRAMES    8
 
-struct SyncTestBackend;
-struct UdpMsg_connect_status;
+typedef struct SyncTestBackend SyncTestBackend;
+typedef struct UdpMsg_connect_status UdpMsg_connect_status;
 
 struct sync_Config
 {
@@ -42,6 +42,7 @@ struct sync_Config
         int                     num_players;
         int                     input_size;
 };
+typedef struct sync_Config sync_Config;
 
 struct sync_Event
 {
@@ -54,6 +55,7 @@ struct sync_Event
                 } confirmedInput;
         } u;
 };
+typedef struct sync_Event sync_Event;
 
 struct sync_SavedFrame
 {
@@ -61,14 +63,17 @@ struct sync_SavedFrame
         int      cbuf;
         int      frame; // -1
         int      checksum;
-        sync_SavedFrame() : buf(NULL), cbuf(0), frame(-1), checksum(0) {}
+        // sync_SavedFrame() : buf(NULL), cbuf(0), frame(-1), checksum(0) {}
 };
+typedef struct sync_SavedFrame sync_SavedFrame;
 
 struct sync_SavedState
 {
         sync_SavedFrame frames[MAX_PREDICTION_FRAMES + 2];
         int head;
 };
+typedef struct sync_SavedState sync_SavedState;
+
 struct Sync
 {
         GGPOSessionCallbacks _callbacks;
@@ -86,6 +91,7 @@ struct Sync
         sync_Event _event_queue[32];
         UdpMsg_connect_status* _local_connect_status;
 };
+typedef struct Sync Sync;
 
 void sync_ctor(Sync* sync, UdpMsg_connect_status* connect_status);
 void sync_dtor(Sync* sync);
@@ -93,8 +99,8 @@ void sync_Init(Sync *sync, sync_Config* config);
 
 void sync_SetLastConfirmedFrame(Sync* sync, int frame);
 void sync_SetFrameDelay(Sync* sync, int queue, int delay);
-bool sync_AddLocalInput(Sync* sync, int queue, GameInput& input);
-void sync_AddRemoteInput(Sync* sync, int queue, GameInput& input);
+bool sync_AddLocalInput(Sync* sync, int queue, GameInput* input);
+void sync_AddRemoteInput(Sync* sync, int queue, GameInput* input);
 int sync_GetConfirmedInputs(Sync* sync, void* values, int size, int frame);
 int sync_SynchronizeInputs(Sync* sync, void* values, int size);
 void sync_CheckSimulation(Sync* sync, int timeout);

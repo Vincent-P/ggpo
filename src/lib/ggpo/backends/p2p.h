@@ -52,6 +52,7 @@ struct Peer2PeerBackend {
 
    UdpMsg_connect_status _local_connect_status[UDP_MSG_MAX_PLAYERS];
 };
+typedef struct Peer2PeerBackend Peer2PeerBackend;
 
 
 void p2p_ctor(Peer2PeerBackend *p2p, GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size);
@@ -79,9 +80,9 @@ int p2p_Poll2Players(Peer2PeerBackend *p2p, int current_frame);
 int p2p_PollNPlayers(Peer2PeerBackend *p2p, int current_frame);
 void p2p_AddRemotePlayer(Peer2PeerBackend *p2p, char *remoteip, uint16 reportport, int queue);
 GGPOErrorCode p2p_AddSpectator(Peer2PeerBackend *p2p, char *remoteip, uint16 reportport);
-inline void p2p_OnSyncEvent(Peer2PeerBackend *p2p, sync_Event &e) { }
-void p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event &e, GGPOPlayerHandle handle);
-void p2p_OnUdpProtocolPeerEvent(Peer2PeerBackend *p2p, udp_protocol_Event &e, int queue);
-void p2p_OnUdpProtocolSpectatorEvent(Peer2PeerBackend *p2p, udp_protocol_Event &e, int queue);
+inline void p2p_OnSyncEvent(Peer2PeerBackend *p2p, sync_Event *e) { }
+void p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event *e, GGPOPlayerHandle handle);
+void p2p_OnUdpProtocolPeerEvent(Peer2PeerBackend *p2p, udp_protocol_Event *e, int queue);
+void p2p_OnUdpProtocolSpectatorEvent(Peer2PeerBackend *p2p, udp_protocol_Event *e, int queue);
 
 #endif

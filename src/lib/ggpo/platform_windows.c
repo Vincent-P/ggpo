@@ -8,7 +8,7 @@
 #include "platform_windows.h"
 
 int
-Platform::GetConfigInt(const char* name)
+Platform_GetConfigInt(const char* name)
 {
    char buf[1024];
    if (GetEnvironmentVariable(name, buf, ARRAY_SIZE(buf)) == 0) {
@@ -17,7 +17,7 @@ Platform::GetConfigInt(const char* name)
    return atoi(buf);
 }
 
-bool Platform::GetConfigBool(const char* name)
+bool Platform_GetConfigBool(const char* name)
 {
    char buf[1024];
    if (GetEnvironmentVariable(name, buf, ARRAY_SIZE(buf)) == 0) {

@@ -32,6 +32,17 @@ typedef unsigned char byte;
 typedef char int8;
 typedef short int16;
 typedef int int32;
+#ifndef bool
+#define bool  _Bool
+#endif
+#ifndef false
+#define false 0
+#endif
+#ifndef true
+#define true  1
+#endif
+
+#define _CRT_SECURE_NO_WARNINGS
 
 /*
  * Additional headers
@@ -55,12 +66,12 @@ typedef int int32;
    do {                                                     \
       if (!(x)) {                                           \
          char assert_buf[1024];                             \
-         snprintf(assert_buf, sizeof(assert_buf) - 1, "Assertion: %s @ %s:%d (pid:%d)", #x, __FILE__, __LINE__, Platform::GetProcessID()); \
+         snprintf(assert_buf, sizeof(assert_buf) - 1, "Assertion: %s @ %s:%d (pid:%lu)", #x, __FILE__, __LINE__, Platform_GetProcessID()); \
          Log("%s\n", assert_buf);                           \
          Log("\n");                                         \
          Log("\n");                                         \
          Log("\n");                                         \
-         Platform::AssertFailed(assert_buf);                \
+         Platform_AssertFailed(assert_buf);                \
          exit(0);                                           \
       }                                                     \
    } while (false)
