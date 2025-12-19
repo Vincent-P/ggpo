@@ -82,7 +82,8 @@ struct Sync
 
         InputQueue* _input_queues;
 
-        RingBuffer<sync_Event, 32> _event_queue;
+        RingBuffer _event_queue_ring;
+        sync_Event _event_queue[32];
         UdpMsg_connect_status* _local_connect_status;
 };
 

@@ -101,7 +101,8 @@ struct UdpProtocol
 		sockaddr_in dest_addr;
 		UdpMsg* msg;
 	}              _oo_packet;
-	RingBuffer<udp_protocol_QueueEntry, 64> _send_queue;
+	RingBuffer _send_queue_ring;
+	udp_protocol_QueueEntry _send_queue[64];
 
 	/*
 	 * Stats
@@ -140,7 +141,8 @@ struct UdpProtocol
 	/*
 	 * Packet loss...
 	 */
-	RingBuffer<GameInput, 64>  _pending_output;
+	RingBuffer  _pending_output_ring;
+	GameInput  _pending_output[64];
 	GameInput                  _last_received_input;
 	GameInput                  _last_sent_input;
 	GameInput                  _last_acked_input;
@@ -163,7 +165,8 @@ struct UdpProtocol
 	/*
 	 * Event queue
 	 */
-	RingBuffer<udp_protocol_Event, 64>  _event_queue;
+	RingBuffer  _event_queue_ring;
+	udp_protocol_Event  _event_queue[64];
 };
 
 

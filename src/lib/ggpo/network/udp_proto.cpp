@@ -69,6 +69,10 @@ void UdpProtocol_ctor(UdpProtocol* protocol)
 	protocol->_oop_percent = Platform::GetConfigInt("ggpo.oop.percent");
 
 	timesync_init(&protocol->_timesync);
+	
+	ring_ctor(&protocol->_send_queue_ring, ARRAY_SIZE(protocol->_send_queue));
+	ring_ctor(&protocol->_pending_output_ring, ARRAY_SIZE(protocol->_pending_output));
+	ring_ctor(&protocol->_event_queue_ring, ARRAY_SIZE(protocol->_event_queue));
 }
 
 void UdpProtocol_dtor(UdpProtocol* protocol)
@@ -113,7 +117,7 @@ void UdpProtocol_SendInput(UdpProtocol* protocol, GameInput& input)
 			 * (better, but still ug).  For the meantime, make this queue really big to decrease
 			 * the odds of this happening...
 			 */
-			protocol->_pending_output.push(input);
+			protocol->_pending_output[ring_push(&protocol->_pending_output_ring)] = input;
 		}
 		UdpProtocol_SendPendingOutput(protocol);
 	}
@@ -126,16 +130,16 @@ void UdpProtocol_SendPendingOutput(UdpProtocol* protocol)
 	uint8* bits;
 	GameInput last;
 
-	if (protocol->_pending_output.size()) {
+	if (ring_size(&protocol->_pending_output_ring)) {
 		last = protocol->_last_acked_input;
 		bits = msg->u.input.bits;
 
-		msg->u.input.start_frame = protocol->_pending_output.front().frame;
-		msg->u.input.input_size = (uint8)protocol->_pending_output.front().size;
+		msg->u.input.start_frame = protocol->_pending_output[ring_front(&protocol->_pending_output_ring)].frame;
+		msg->u.input.input_size = (uint8)protocol->_pending_output[ring_front(&protocol->_pending_output_ring)].size;
 
 		ASSERT(last.frame == -1 || last.frame + 1 == msg->u.input.start_frame);
-		for (j = 0; j < protocol->_pending_output.size(); j++) {
-			GameInput& current = protocol->_pending_output.item(j);
+		for (j = 0; j < ring_size(&protocol->_pending_output_ring); j++) {
+			GameInput& current = protocol->_pending_output[ring_item(&protocol->_pending_output_ring, j)];
 			if (memcmp(current.bits, last.bits, current.size) != 0) {
 				ASSERT((GAMEINPUT_MAX_BYTES * GAMEINPUT_MAX_PLAYERS * 8) < (1 << BITVECTOR_NIBBLE_SIZE));
 				for (i = 0; i < current.size * 8; i++) {
@@ -180,11 +184,11 @@ void UdpProtocol_SendInputAck(UdpProtocol* protocol)
 
 bool UdpProtocol_GetEvent(UdpProtocol* protocol, udp_protocol_Event& e)
 {
-	if (protocol->_event_queue.size() == 0) {
+	if (ring_size(&protocol->_event_queue_ring) == 0) {
 		return false;
 	}
-	e = protocol->_event_queue.front();
-	protocol->_event_queue.pop();
+	e = protocol->_event_queue[ring_front(&protocol->_event_queue_ring)];
+	ring_pop(&protocol->_event_queue_ring);
 	return true;
 }
 
@@ -291,7 +295,7 @@ void UdpProtocol_SendMsg(UdpProtocol* protocol, UdpMsg* msg)
 	msg->hdr.magic = protocol->_magic_number;
 	msg->hdr.sequence_number = protocol->_next_send_seq++;
 
-	protocol->_send_queue.push(udp_protocol_QueueEntry{ (int)Platform::GetCurrentTimeMS(), protocol->_peer_addr, msg });
+	protocol->_send_queue[ring_push(&protocol->_send_queue_ring)] = udp_protocol_QueueEntry{(int)Platform::GetCurrentTimeMS(), protocol->_peer_addr, msg};
 	UdpProtocol_PumpSendQueue(protocol);
 }
 
@@ -384,7 +388,7 @@ void UdpProtocol_UpdateNetworkStats(UdpProtocol *protocol)
 void UdpProtocol_QueueEvent(UdpProtocol *protocol, const udp_protocol_Event& evt)
 {
 	UdpProtocol_LogEvent(protocol, "Queuing event", evt);
-	protocol->_event_queue.push(evt);
+	protocol->_event_queue[ring_push(&protocol->_event_queue_ring)] = evt;
 }
 
 void UdpProtocol_Synchronize(UdpProtocol *protocol)
@@ -615,10 +619,10 @@ bool UdpProtocol_OnInput(UdpProtocol *protocol, UdpMsg* msg, int len)
 	/*
 	 * Get rid of our buffered input
 	 */
-	while (protocol->_pending_output.size() && protocol->_pending_output.front().frame < msg->u.input.ack_frame) {
-		Log("Throwing away pending output frame %d\n", protocol->_pending_output.front().frame);
-		protocol->_last_acked_input = protocol->_pending_output.front();
-		protocol->_pending_output.pop();
+	while (ring_size(&protocol->_pending_output_ring) && protocol->_pending_output[ring_front(&protocol->_pending_output_ring)].frame < msg->u.input.ack_frame) {
+		Log("Throwing away pending output frame %d\n", protocol->_pending_output[ring_front(&protocol->_pending_output_ring)].frame);
+		protocol->_last_acked_input = protocol->_pending_output[ring_front(&protocol->_pending_output_ring)];
+		ring_pop(&protocol->_pending_output_ring);
 	}
 	return true;
 }
@@ -629,10 +633,10 @@ bool UdpProtocol_OnInputAck(UdpProtocol *protocol, UdpMsg* msg, int len)
 	/*
 	 * Get rid of our buffered input
 	 */
-	while (protocol->_pending_output.size() && protocol->_pending_output.front().frame < msg->u.input_ack.ack_frame) {
-		Log("Throwing away pending output frame %d\n", protocol->_pending_output.front().frame);
-		protocol->_last_acked_input = protocol->_pending_output.front();
-		protocol->_pending_output.pop();
+	while (ring_size(&protocol->_pending_output_ring) && protocol->_pending_output[ring_front(&protocol->_pending_output_ring)].frame < msg->u.input_ack.ack_frame) {
+		Log("Throwing away pending output frame %d\n", protocol->_pending_output[ring_front(&protocol->_pending_output_ring)].frame);
+		protocol->_last_acked_input = protocol->_pending_output[ring_front(&protocol->_pending_output_ring)];
+		ring_pop(&protocol->_pending_output_ring);
 	}
 	return true;
 }
@@ -662,7 +666,7 @@ bool UdpProtocol_OnKeepAlive(UdpProtocol *protocol, UdpMsg* msg, int len)
 void UdpProtocol_GetNetworkStats(UdpProtocol *protocol, struct GGPONetworkStats* s)
 {
 	s->network.ping = protocol->_round_trip_time;
-	s->network.send_queue_len = protocol->_pending_output.size();
+	s->network.send_queue_len = ring_size(&protocol->_pending_output_ring);
 	s->network.kbps_sent = protocol->_kbps_sent;
 	s->timesync.remote_frames_behind = protocol->_remote_frame_advantage;
 	s->timesync.local_frames_behind = protocol->_local_frame_advantage;
@@ -705,14 +709,14 @@ void UdpProtocol_SetDisconnectNotifyStart(UdpProtocol *protocol, int timeout)
 
 void UdpProtocol_PumpSendQueue(UdpProtocol *protocol)
 {
-	while (!protocol->_send_queue.empty()) {
-		udp_protocol_QueueEntry& entry = protocol->_send_queue.front();
+	while (!ring_empty(&protocol->_send_queue_ring)) {
+		udp_protocol_QueueEntry& entry = protocol->_send_queue[ring_front(&protocol->_send_queue_ring)];
 
 		if (protocol->_send_latency) {
 			// should really come up with a gaussian distributation based on the configured
 			// value, but this will do for now.
 			int jitter = (protocol->_send_latency * 2 / 3) + ((rand() % protocol->_send_latency) / 3);
-			if (Platform::GetCurrentTimeMS() < protocol->_send_queue.front().queue_time + jitter) {
+			if (Platform::GetCurrentTimeMS() < protocol->_send_queue[ring_front(&protocol->_send_queue_ring)].queue_time + jitter) {
 				break;
 			}
 		}
@@ -731,7 +735,7 @@ void UdpProtocol_PumpSendQueue(UdpProtocol *protocol)
 
 			delete entry.msg;
 		}
-		protocol->_send_queue.pop();
+		ring_pop(&protocol->_send_queue_ring);
 	}
 	if (protocol->_oo_packet.msg && protocol->_oo_packet.send_time < Platform::GetCurrentTimeMS()) {
 		Log("sending rogue oop!");
@@ -745,8 +749,8 @@ void UdpProtocol_PumpSendQueue(UdpProtocol *protocol)
 
 void UdpProtocol_ClearSendQueue(UdpProtocol *protocol)
 {
-	while (!protocol->_send_queue.empty()) {
-		delete protocol->_send_queue.front().msg;
-		protocol->_send_queue.pop();
+	while (!ring_empty(&protocol->_send_queue_ring)) {
+		delete protocol->_send_queue[ring_front(&protocol->_send_queue_ring)].msg;
+		ring_pop(&protocol->_send_queue_ring);
 	}
 }

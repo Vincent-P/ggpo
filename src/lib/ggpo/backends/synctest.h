@@ -52,7 +52,8 @@ struct SyncTestBackend {
 
    GameInput                  _current_input;
    GameInput                  _last_input;
-   RingBuffer<synctest_SavedInfo, 32>  _saved_frames;
+   RingBuffer _saved_frames_ring;
+   synctest_SavedInfo  _saved_frames[32];
 };
 
    void synctest_ctor(SyncTestBackend *synctest, GGPOSessionCallbacks *cb, char *gamename, int frames, int num_players);

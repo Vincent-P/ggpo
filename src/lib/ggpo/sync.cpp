@@ -39,6 +39,8 @@ void sync_ctor(Sync* sync, UdpMsg_connect_status* connect_status)
    sync->_last_confirmed_frame = -1;
    sync->_max_prediction_frames = 0;
    memset(&sync->_savedstate, 0, sizeof(sync->_savedstate));
+
+   ring_ctor(&sync->_event_queue_ring, ARRAY_SIZE(sync->_event_queue));
 }
 
 void sync_dtor(Sync* sync)
@@ -192,9 +194,9 @@ void sync_IncrementFrame(Sync* sync)
 
 bool sync_GetEvent(Sync* sync, sync_Event* e)
 {
-        if (sync->_event_queue.size()) {
-                *e = sync->_event_queue.front();
-                sync->_event_queue.pop();
+        if (ring_size(&sync->_event_queue_ring)) {
+                *e = sync->_event_queue[ring_front(&sync->_event_queue_ring)];
+                ring_pop(&sync->_event_queue_ring);
                 return true;
         }
         return false;

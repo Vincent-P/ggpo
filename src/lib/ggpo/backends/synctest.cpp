@@ -38,6 +38,7 @@ void synctest_ctor(SyncTestBackend *synctest, GGPOSessionCallbacks *cb, char *ga
    synctest->_logfp = NULL;
    gameinput_erase(&synctest->_current_input);
    strcpy_s(synctest->_game, gamename);
+   ring_ctor(&synctest->_saved_frames_ring, ARRAY_SIZE(synctest->_saved_frames));
 
    /*
     * Initialize the synchronziation layer
@@ -103,7 +104,7 @@ synctest_SyncInput(SyncTestBackend *synctest,void *values,
 {
    synctest_BeginLog(synctest, false);
    if (synctest->_rollingback) {
-      synctest->_last_input = synctest->_saved_frames.front().input;
+      synctest->_last_input = synctest->_saved_frames[ring_front(&synctest->_saved_frames_ring)].input;
    } else {
       if (sync_GetFrameCount(&synctest->_sync) == 0) {
          sync_SaveCurrentFrame(&synctest->_sync);
@@ -141,7 +142,7 @@ synctest_IncrementFrame(SyncTestBackend *synctest)
    info.buf = (char *)malloc(info.cbuf);
    memcpy(info.buf, sync_GetLastSavedFrame(&synctest->_sync)->buf, info.cbuf);
    info.checksum = sync_GetLastSavedFrame(&synctest->_sync)->checksum;
-   synctest->_saved_frames.push(info);
+   synctest->_saved_frames[ring_push(&synctest->_saved_frames_ring)] = info;
 
    if (frame - synctest->_last_verified == synctest->_check_distance) {
       // We've gone far enough ahead and should now start replaying frames.
@@ -149,13 +150,13 @@ synctest_IncrementFrame(SyncTestBackend *synctest)
       sync_LoadFrame(&synctest->_sync, synctest->_last_verified);
 
       synctest->_rollingback = true;
-      while(!synctest->_saved_frames.empty()) {
+      while(!ring_empty(&synctest->_saved_frames_ring)) {
          synctest->_header._callbacks.advance_frame(0);
 
          // Verify that the checksumn of this frame is the same as the one in our
          // list.
-         info = synctest->_saved_frames.front();
-         synctest->_saved_frames.pop();
+         info = synctest->_saved_frames[ring_front(&synctest->_saved_frames_ring)];
+         ring_pop(&synctest->_saved_frames_ring);
 
          if (info.frame != sync_GetFrameCount(&synctest->_sync)) {
             synctest_RaiseSyncError(synctest, "Frame number %d does not match saved frame number %d", info.frame, frame);
