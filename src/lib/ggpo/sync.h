@@ -32,7 +32,7 @@
 
 #define MAX_PREDICTION_FRAMES    8
 
-class SyncTestBackend;
+struct SyncTestBackend;
 struct UdpMsg_connect_status;
 
 struct sync_Config

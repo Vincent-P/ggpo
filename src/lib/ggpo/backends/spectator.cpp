@@ -26,111 +26,114 @@
 
 static void SpectatorBackend_OnMsg(sockaddr_in& from, UdpMsg* msg, int len, void* user_data);
 
-SpectatorBackend::SpectatorBackend(GGPOSessionCallbacks* cb,
+void spec_ctor(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
 	const char* gamename,
 	uint16 localport,
 	int num_players,
 	int input_size,
 	char* hostip,
-	u_short hostport) :
-	_num_players(num_players),
-	_input_size(input_size),
-	_next_input_to_send(0)
+	u_short hostport)
 {
-	_callbacks = *cb;
-	_synchronizing = true;
 
-	for (int i = 0; i < ARRAY_SIZE(_inputs); i++) {
-		_inputs[i].frame = -1;
+	spec->_num_players = num_players;
+	spec->_input_size = input_size;
+	spec->_next_input_to_send = 0;
+	
+	spec->_header._session_type = SESSION_SPECTATOR;
+	spec->_header._callbacks = *cb;
+	spec->_synchronizing = true;
+
+	for (int i = 0; i < ARRAY_SIZE(spec->_inputs); i++) {
+		spec->_inputs[i].frame = -1;
 	}
 
 	/*
 	 * Initialize the UDP port
 	 */
-	udp_ctor(&_udp);
-	udp_Init(&_udp, localport, SpectatorBackend_OnMsg, this);
+	udp_ctor(&spec->_udp);
+	udp_Init(&spec->_udp, localport, SpectatorBackend_OnMsg, spec);
 
 	/*
 	 * Init the host endpoint
 	 */
-	UdpProtocol_ctor(&_host);
-	UdpProtocol_Init(&_host, &_udp, 0, hostip, hostport, NULL);
-	UdpProtocol_Synchronize(&_host);
+	UdpProtocol_ctor(&spec->_host);
+	UdpProtocol_Init(&spec->_host, &spec->_udp, 0, hostip, hostport, NULL);
+	UdpProtocol_Synchronize(&spec->_host);
 
 	/*
 	 * Preload the ROM
 	 */
-	_callbacks.begin_game(gamename);
+	spec->_header._callbacks.begin_game(gamename);
 }
 
-SpectatorBackend::~SpectatorBackend()
+void spec_dtor(SpectatorBackend* spec)
 {
-	udp_dtor(&_udp);
+	udp_dtor(&spec->_udp);
 }
 
 GGPOErrorCode
-SpectatorBackend::DoPoll(int timeout)
+spec_DoPoll(SpectatorBackend* spec, int timeout)
 {
-	udp_OnLoopPoll(&_udp);
-	UdpProtocol_OnLoopPoll(&_host);
+	udp_OnLoopPoll(&spec->_udp);
+	UdpProtocol_OnLoopPoll(&spec->_host);
 
 
-	PollUdpProtocolEvents();
+	spec_PollUdpProtocolEvents(spec);
 	return GGPO_OK;
 }
 
 GGPOErrorCode
-SpectatorBackend::SyncInput(void* values,
+spec_SyncInput(SpectatorBackend* spec, void* values,
 	int size,
 	int* disconnect_flags)
 {
 	// Wait until we've started to return inputs.
-	if (_synchronizing) {
+	if (spec->_synchronizing) {
 		return GGPO_ERRORCODE_NOT_SYNCHRONIZED;
 	}
 
-	GameInput& input = _inputs[_next_input_to_send % SPECTATOR_FRAME_BUFFER_SIZE];
-	if (input.frame < _next_input_to_send) {
+	GameInput& input = spec->_inputs[spec->_next_input_to_send % SPECTATOR_FRAME_BUFFER_SIZE];
+	if (input.frame < spec->_next_input_to_send) {
 		// Haven't received the input from the host yet.  Wait
 		return GGPO_ERRORCODE_PREDICTION_THRESHOLD;
 	}
-	if (input.frame > _next_input_to_send) {
+	if (input.frame > spec->_next_input_to_send) {
 		// The host is way way way far ahead of the spectator.  How'd this
 		// happen?  Anyway, the input we need is gone forever.
 		return GGPO_ERRORCODE_GENERAL_FAILURE;
 	}
 
-	ASSERT(size >= _input_size * _num_players);
-	memcpy(values, input.bits, _input_size * _num_players);
+	ASSERT(size >= spec->_input_size * spec->_num_players);
+	memcpy(values, input.bits, spec->_input_size * spec->_num_players);
 	if (disconnect_flags) {
 		*disconnect_flags = 0; // xxx: should get them from the host!
 	}
-	_next_input_to_send++;
+	spec->_next_input_to_send++;
 
 	return GGPO_OK;
 }
 
 GGPOErrorCode
-SpectatorBackend::IncrementFrame(void)
+spec_IncrementFrame(SpectatorBackend* spec)
 {
-	Log("End of frame (%d)...\n", _next_input_to_send - 1);
-	DoPoll(0);
-	PollUdpProtocolEvents();
+	Log("End of frame (%d)...\n", spec->_next_input_to_send - 1);
+	spec_DoPoll(spec, 0);
+	spec_PollUdpProtocolEvents(spec);
 
 	return GGPO_OK;
 }
 
 void
-SpectatorBackend::PollUdpProtocolEvents(void)
+spec_PollUdpProtocolEvents(SpectatorBackend* spec)
 {
 	udp_protocol_Event evt;
-	while (UdpProtocol_GetEvent(&_host, evt)) {
-		OnUdpProtocolEvent(evt);
+	while (UdpProtocol_GetEvent(&spec->_host, evt)) {
+		spec_OnUdpProtocolEvent(spec, evt);
 	}
 }
 
 void
-SpectatorBackend::OnUdpProtocolEvent(udp_protocol_Event& evt)
+spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event& evt)
 {
 	GGPOEvent info;
 
@@ -138,24 +141,24 @@ SpectatorBackend::OnUdpProtocolEvent(udp_protocol_Event& evt)
 	case UdpProtocol_Event_Connected:
 		info.code = GGPO_EVENTCODE_CONNECTED_TO_PEER;
 		info.u.connected.player = 0;
-		_callbacks.on_event(&info);
+		spec->_header._callbacks.on_event(&info);
 		break;
 	case UdpProtocol_Event_Synchronizing:
 		info.code = GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER;
 		info.u.synchronizing.player = 0;
 		info.u.synchronizing.count = evt.u.synchronizing.count;
 		info.u.synchronizing.total = evt.u.synchronizing.total;
-		_callbacks.on_event(&info);
+		spec->_header._callbacks.on_event(&info);
 		break;
 	case UdpProtocol_Event_Synchronzied:
-		if (_synchronizing) {
+		if (spec->_synchronizing) {
 			info.code = GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER;
 			info.u.synchronized.player = 0;
-			_callbacks.on_event(&info);
+			spec->_header._callbacks.on_event(&info);
 
 			info.code = GGPO_EVENTCODE_RUNNING;
-			_callbacks.on_event(&info);
-			_synchronizing = false;
+			spec->_header._callbacks.on_event(&info);
+			spec->_synchronizing = false;
 		}
 		break;
 
@@ -163,27 +166,27 @@ SpectatorBackend::OnUdpProtocolEvent(udp_protocol_Event& evt)
 		info.code = GGPO_EVENTCODE_CONNECTION_INTERRUPTED;
 		info.u.connection_interrupted.player = 0;
 		info.u.connection_interrupted.disconnect_timeout = evt.u.network_interrupted.disconnect_timeout;
-		_callbacks.on_event(&info);
+		spec->_header._callbacks.on_event(&info);
 		break;
 
 	case UdpProtocol_Event_NetworkResumed:
 		info.code = GGPO_EVENTCODE_CONNECTION_RESUMED;
 		info.u.connection_resumed.player = 0;
-		_callbacks.on_event(&info);
+		spec->_header._callbacks.on_event(&info);
 		break;
 
 	case UdpProtocol_Event_Disconnected:
 		info.code = GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
 		info.u.disconnected.player = 0;
-		_callbacks.on_event(&info);
+		spec->_header._callbacks.on_event(&info);
 		break;
 
 	case UdpProtocol_Event_Input:
 		GameInput& input = evt.u.input.input;
 
-		UdpProtocol_SetLocalFrameNumber(&_host, input.frame);
-		UdpProtocol_SendInputAck(&_host);
-		_inputs[input.frame % SPECTATOR_FRAME_BUFFER_SIZE] = input;
+		UdpProtocol_SetLocalFrameNumber(&spec->_host, input.frame);
+		UdpProtocol_SendInputAck(&spec->_host);
+		spec->_inputs[input.frame % SPECTATOR_FRAME_BUFFER_SIZE] = input;
 		break;
 	}
 }

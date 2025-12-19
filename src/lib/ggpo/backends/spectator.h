@@ -32,28 +32,9 @@
 
 #define SPECTATOR_FRAME_BUFFER_SIZE    64
 
-class SpectatorBackend : public GGPOSession {
-public:
-   SpectatorBackend(GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size, char *hostip, u_short hostport);
-   virtual ~SpectatorBackend();
+struct SpectatorBackend  {
+	GGPOSessionHeader _header;
 
-   virtual GGPOErrorCode DoPoll(int timeout);
-   virtual GGPOErrorCode AddPlayer(GGPOPlayer *player, GGPOPlayerHandle *handle) { return GGPO_ERRORCODE_UNSUPPORTED; }
-   virtual GGPOErrorCode AddLocalInput(GGPOPlayerHandle player, void *values, int size) { return GGPO_OK; }
-   virtual GGPOErrorCode SyncInput(void *values, int size, int *disconnect_flags);
-   virtual GGPOErrorCode IncrementFrame(void);
-   virtual GGPOErrorCode DisconnectPlayer(GGPOPlayerHandle handle) { return GGPO_ERRORCODE_UNSUPPORTED; }
-   virtual GGPOErrorCode GetNetworkStats(GGPONetworkStats *stats, GGPOPlayerHandle handle) { return GGPO_ERRORCODE_UNSUPPORTED; }
-   virtual GGPOErrorCode SetFrameDelay(GGPOPlayerHandle player, int delay) { return GGPO_ERRORCODE_UNSUPPORTED; }
-   virtual GGPOErrorCode SetDisconnectTimeout(int timeout) { return GGPO_ERRORCODE_UNSUPPORTED; }
-   virtual GGPOErrorCode SetDisconnectNotifyStart(int timeout) { return GGPO_ERRORCODE_UNSUPPORTED; }
-
-   void PollUdpProtocolEvents(void);
-   void CheckInitialSync(void);
-
-   void OnUdpProtocolEvent(udp_protocol_Event &e);
-
-   GGPOSessionCallbacks  _callbacks;
    Udp                   _udp;
    UdpProtocol           _host;
    bool                  _synchronizing;
@@ -62,5 +43,24 @@ public:
    int                   _next_input_to_send;
    GameInput             _inputs[SPECTATOR_FRAME_BUFFER_SIZE];
 };
+
+   void spec_ctor(SpectatorBackend *spec, GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size, char *hostip, u_short hostport);
+   void spec_dtor(SpectatorBackend *spec);
+
+   GGPOErrorCode spec_DoPoll(SpectatorBackend *spec, int timeout);
+   inline GGPOErrorCode spec_AddPlayer(SpectatorBackend *spec, GGPOPlayer *player, GGPOPlayerHandle *handle) { return GGPO_ERRORCODE_UNSUPPORTED; }
+   inline GGPOErrorCode spec_AddLocalInput(SpectatorBackend *spec, GGPOPlayerHandle player, void *values, int size) { return GGPO_OK; }
+   GGPOErrorCode spec_SyncInput(SpectatorBackend *spec, void *values, int size, int *disconnect_flags);
+   GGPOErrorCode spec_IncrementFrame(SpectatorBackend *spec);
+   inline GGPOErrorCode spec_DisconnectPlayer(SpectatorBackend *spec, GGPOPlayerHandle handle) { return GGPO_ERRORCODE_UNSUPPORTED; }
+   inline GGPOErrorCode spec_GetNetworkStats(SpectatorBackend *spec, GGPONetworkStats *stats, GGPOPlayerHandle handle) { return GGPO_ERRORCODE_UNSUPPORTED; }
+   inline GGPOErrorCode spec_SetFrameDelay(SpectatorBackend *spec, GGPOPlayerHandle player, int delay) { return GGPO_ERRORCODE_UNSUPPORTED; }
+   inline GGPOErrorCode spec_SetDisconnectTimeout(SpectatorBackend *spec, int timeout) { return GGPO_ERRORCODE_UNSUPPORTED; }
+   inline GGPOErrorCode spec_SetDisconnectNotifyStart(SpectatorBackend *spec, int timeout) { return GGPO_ERRORCODE_UNSUPPORTED; }
+
+   void spec_PollUdpProtocolEvents(SpectatorBackend *spec);
+   void spec_CheckInitialSync(SpectatorBackend *spec);
+
+   void spec_OnUdpProtocolEvent(SpectatorBackend *spec, udp_protocol_Event &e);
 
 #endif
