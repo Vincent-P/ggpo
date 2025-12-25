@@ -24,7 +24,7 @@
 #include "spectator.h"
 
 
-static void SpectatorBackend_OnMsg(sockaddr_in* from, UdpMsg* msg, int len, void* user_data);
+static void SpectatorBackend_OnMsg(conn_Address* from, UdpMsg* msg, int len, void* user_data);
 
 void spec_ctor(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
 	const char* gamename,
@@ -56,8 +56,11 @@ void spec_ctor(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
 	/*
 	 * Init the host endpoint
 	 */
+	ASSERT(conn_support_ip_port());
+	conn_Address peer_addr =  conn_address_from_ip_port(hostip, hostport);
+
 	UdpProtocol_ctor(&spec->_host);
-	UdpProtocol_Init(&spec->_host, &spec->_udp, 0, hostip, hostport, NULL);
+	UdpProtocol_Init(&spec->_host, &spec->_udp, 0, peer_addr, NULL);
 	UdpProtocol_Synchronize(&spec->_host);
 
 	/*
@@ -188,13 +191,16 @@ spec_OnUdpProtocolEvent(SpectatorBackend* spec, udp_protocol_Event* evt)
 		UdpProtocol_SendInputAck(&spec->_host);
 		spec->_inputs[input.frame % SPECTATOR_FRAME_BUFFER_SIZE] = input;
 		break;
+
+	case UdpProtocol_Event_Unknown:
+		break;
 	}
 }
 
-static void SpectatorBackend_OnMsg(sockaddr_in*from, UdpMsg* msg, int len, void* user_data)
+static void SpectatorBackend_OnMsg(conn_Address*from, UdpMsg* msg, int len, void* user_data)
 {
 	SpectatorBackend* backend = (SpectatorBackend*)user_data;
-	if (UdpProtocol_HandlesMsg(&backend->_host, from, msg)) {
+	if (UdpProtocol_HandlesMsg(&backend->_host, *from, msg)) {
 		UdpProtocol_OnMsg(&backend->_host, msg, len);
 	}
 }

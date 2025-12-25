@@ -27,7 +27,7 @@ static const int RECOMMENDATION_INTERVAL = 240;
 static const int DEFAULT_DISCONNECT_TIMEOUT = 5000;
 static const int DEFAULT_DISCONNECT_NOTIFY_START = 750;
 
-static void p2p_OnMsg(sockaddr_in* from, UdpMsg* msg, int len, void* user_data);
+static void p2p_OnMsg(conn_Address* from, UdpMsg* msg, int len, void* user_data);
 
 
 
@@ -101,7 +101,10 @@ p2p_AddRemotePlayer(Peer2PeerBackend *p2p, char* ip,
 	 */
 	p2p->_synchronizing = true;
 
-	UdpProtocol_Init(&p2p->_endpoints[queue], &p2p->_udp, queue, ip, port, p2p->_local_connect_status);
+	ASSERT(conn_support_ip_port());
+	conn_Address peer_addr =  conn_address_from_ip_port(ip, port);
+
+	UdpProtocol_Init(&p2p->_endpoints[queue], &p2p->_udp, queue, peer_addr, p2p->_local_connect_status);
 	UdpProtocol_SetDisconnectTimeout(&p2p->_endpoints[queue], p2p->_disconnect_timeout);
 	UdpProtocol_SetDisconnectNotifyStart(&p2p->_endpoints[queue], p2p->_disconnect_notify_start);
 	UdpProtocol_Synchronize(&p2p->_endpoints[queue]);
@@ -121,7 +124,10 @@ GGPOErrorCode p2p_AddSpectator(Peer2PeerBackend *p2p, char* ip,
 	}
 	int queue = p2p->_num_spectators++;
 
-	UdpProtocol_Init(&p2p->_spectators[queue], &p2p->_udp, queue + 1000, ip, port, p2p->_local_connect_status);
+	ASSERT(conn_support_ip_port());
+	conn_Address peer_addr =  conn_address_from_ip_port(ip, port);
+
+	UdpProtocol_Init(&p2p->_spectators[queue], &p2p->_udp, queue + 1000, peer_addr, p2p->_local_connect_status);
 	UdpProtocol_SetDisconnectTimeout(&p2p->_spectators[queue], p2p->_disconnect_timeout);
 	UdpProtocol_SetDisconnectNotifyStart(&p2p->_spectators[queue], p2p->_disconnect_notify_start);
 	UdpProtocol_Synchronize(&p2p->_spectators[queue]);
@@ -200,7 +206,8 @@ p2p_DoPoll(Peer2PeerBackend *p2p, int timeout)
 			}
 			// XXX: this is obviously a farce...
 			if (timeout) {
-				Sleep(1);
+				ASSERT(false);
+				// Sleep(1);
 			}
 		}
 	}
@@ -426,6 +433,15 @@ p2p_OnUdpProtocolPeerEvent(Peer2PeerBackend *p2p, udp_protocol_Event* evt, int q
 	case UdpProtocol_Event_Disconnected:
 		p2p_DisconnectPlayer(p2p, p2p_QueueToPlayerHandle(p2p, queue));
 		break;
+
+
+	case UdpProtocol_Event_Unknown:
+	case UdpProtocol_Event_Connected:
+	case UdpProtocol_Event_Synchronizing:
+	case UdpProtocol_Event_Synchronzied:
+	case UdpProtocol_Event_NetworkInterrupted:
+	case UdpProtocol_Event_NetworkResumed:
+		break;
 	}
 }
 
@@ -438,15 +454,12 @@ p2p_OnUdpProtocolSpectatorEvent(Peer2PeerBackend *p2p, udp_protocol_Event* evt, 
 
 	GGPOEvent info;
 
-	switch (evt->type) {
-	case UdpProtocol_Event_Disconnected:
+	if (evt->type == UdpProtocol_Event_Disconnected) {
 		UdpProtocol_Disconnect(&p2p->_spectators[queue]);
 
 		info.code = GGPO_EVENTCODE_DISCONNECTED_FROM_PEER;
 		info.u.disconnected.player = handle;
 		p2p->_header._callbacks.on_event(&info);
-
-		break;
 	}
 }
 
@@ -487,6 +500,11 @@ p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event* evt, GGPOPlaye
 		info.code = GGPO_EVENTCODE_CONNECTION_RESUMED;
 		info.u.connection_resumed.player = handle;
 		p2p->_header._callbacks.on_event(&info);
+		break;
+	case UdpProtocol_Event_Unknown:
+	case UdpProtocol_Event_Input:
+	case UdpProtocol_Event_Disconnected:
+		// default case
 		break;
 	}
 }
@@ -624,17 +642,17 @@ p2p_PlayerHandleToQueue(Peer2PeerBackend *p2p, GGPOPlayerHandle player, int* que
 }
 
 
-static void p2p_OnMsg(sockaddr_in* from, UdpMsg* msg, int len, void* user_data)
+static void p2p_OnMsg(conn_Address* from, UdpMsg* msg, int len, void* user_data)
 {
 	Peer2PeerBackend* backend = (Peer2PeerBackend*)user_data;
 	for (int i = 0; i < backend->_num_players; i++) {
-		if (UdpProtocol_HandlesMsg(&backend->_endpoints[i], from, msg)) {
+		if (UdpProtocol_HandlesMsg(&backend->_endpoints[i], *from, msg)) {
 			UdpProtocol_OnMsg(&backend->_endpoints[i], msg, len);
 			return;
 		}
 	}
 	for (int i = 0; i < backend->_num_spectators; i++) {
-		if (UdpProtocol_HandlesMsg(&backend->_spectators[i], from, msg)) {
+		if (UdpProtocol_HandlesMsg(&backend->_spectators[i], *from, msg)) {
 			UdpProtocol_OnMsg(&backend->_spectators[i], msg, len);
 			return;
 		}

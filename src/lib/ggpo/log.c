@@ -32,7 +32,7 @@ void Logv(const char *fmt, va_list args)
       return;
    }
    if (!logfile) {
-      snprintf(logbuf, ARRAY_SIZE(logbuf), "log-%u.log", Platform_GetProcessID());
+      snprintf(logbuf, ARRAY_SIZE(logbuf), "log-%llu.log", Platform_GetProcessID());
       logfile = fopen(logbuf, "w");
    }
    LogvFile(logfile, fmt, args);

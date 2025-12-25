@@ -5,6 +5,8 @@
  * in the LICENSE file.
  */
 
+#if defined(_WINDOWS)
+
 #include "platform_windows.h"
 
 int
@@ -25,3 +27,5 @@ bool Platform_GetConfigBool(const char* name)
    }
    return atoi(buf) != 0 || _stricmp(buf, "true") == 0;
 }
+
+#endif

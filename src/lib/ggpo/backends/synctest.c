@@ -182,11 +182,13 @@ synctest_RaiseSyncError(SyncTestBackend *synctest, const char *fmt, ...)
    char buf[1024];
    va_list args;
    va_start(args, fmt);
-   vsprintf_s(buf, ARRAY_SIZE(buf), fmt, args);
+   vsnprintf(buf, ARRAY_SIZE(buf), fmt, args);
    va_end(args);
 
    puts(buf);
+#if defined(_WINDOWS)
    OutputDebugStringA(buf);
+#endif
    synctest_EndLog(synctest);
    DebugBreak();
 }
@@ -206,8 +208,12 @@ synctest_BeginLog(SyncTestBackend *synctest, int saving)
    synctest_EndLog(synctest);
 
    char filename[MAX_PATH];
+#if defined(_WINDOWS)
    CreateDirectoryA("synclogs", NULL);
-   sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\%s-%04d-%s.log",
+#else
+   ASSERT(false);
+#endif
+   snprintf(filename, ARRAY_SIZE(filename), "synclogs\\%s-%04d-%s.log",
            saving ? "state" : "log",
            sync_GetFrameCount(&synctest->_sync),
            synctest->_rollingback ? "replay" : "original");
@@ -228,9 +234,9 @@ void
 synctest_LogSaveStates(SyncTestBackend *synctest, synctest_SavedInfo *info)
 {
    char filename[MAX_PATH];
-   sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-original.log", sync_GetFrameCount(&synctest->_sync));
+   snprintf(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-original.log", sync_GetFrameCount(&synctest->_sync));
    synctest->_header._callbacks.log_game_state(filename, (unsigned char *)info->buf, info->cbuf);
 
-   sprintf_s(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-replay.log", sync_GetFrameCount(&synctest->_sync));
+   snprintf(filename, ARRAY_SIZE(filename), "synclogs\\state-%04d-replay.log", sync_GetFrameCount(&synctest->_sync));
    synctest->_header._callbacks.log_game_state(filename, sync_GetLastSavedFrame(&synctest->_sync)->buf, sync_GetLastSavedFrame(&synctest->_sync)->cbuf);
 }

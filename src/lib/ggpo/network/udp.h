@@ -26,14 +26,14 @@
 
 #include "ggponet.h"
 #include "ring_buffer.h"
+#include "connection.h"
 
 #define MAX_UDP_ENDPOINTS     16
 
 #define MAX_UDP_PACKET_SIZE 4096
 
 typedef struct UdpMsg UdpMsg;
-typedef struct sockaddr_in sockaddr_in;
-typedef void (*UdpOnMsgFn)(sockaddr_in *from, UdpMsg *msg, int len, void* user_data);
+typedef void (*UdpOnMsgFn)(conn_Address *from, UdpMsg *msg, int len, void* user_data);
 
 
 struct udp_Stats {
@@ -46,7 +46,7 @@ typedef struct udp_Stats udp_Stats;
 struct Udp
 {
    // Network transmission information
-   SOCKET         _socket;
+   conn_Socket         _socket;
 
    // state management
    void* _user_data;
@@ -58,8 +58,8 @@ void udp_Log(const char *fmt, ...);
 
 void udp_ctor(Udp* udp);
 void udp_dtor(Udp* udp);
-void udp_Init(Udp* udp, uint16 port, UdpOnMsgFn on_msg_callback, void *user_data);   
-void udp_SendTo(Udp* ud, char *buffer, int len, int flags, struct sockaddr *dst, int destlen);
+void udp_Init(Udp* udp, uint16 port, UdpOnMsgFn on_msg_callback, void *user_data);
+void udp_SendTo(Udp* ud, char *buffer, int len, int flags, conn_Address to);
 bool udp_OnLoopPoll(Udp* udp);
 
 
