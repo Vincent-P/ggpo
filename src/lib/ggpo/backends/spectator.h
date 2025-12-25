@@ -46,7 +46,7 @@ struct SpectatorBackend  {
 
 typedef struct SpectatorBackend SpectatorBackend;
 
-   void spec_ctor(SpectatorBackend *spec, GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size, char *hostip, u_short hostport);
+   void spec_ctor(SpectatorBackend *spec, GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size, char *hostip, uint16 hostport);
    void spec_dtor(SpectatorBackend *spec);
 
    GGPOErrorCode spec_DoPoll(SpectatorBackend *spec, int timeout);

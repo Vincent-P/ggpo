@@ -23,11 +23,11 @@
 
 #include "synctest.h"
 
-   
+
 void synctest_ctor(SyncTestBackend *synctest, GGPOSessionCallbacks *cb, char *gamename, int frames, int num_players)
 {
     sync_ctor(&synctest->_sync, NULL);
-  
+
 	synctest->_header._session_type = SESSION_SYNCTEST;
    synctest->_header._callbacks = *cb;
    synctest->_num_players = num_players;
@@ -120,10 +120,10 @@ synctest_SyncInput(SyncTestBackend *synctest,void *values,
 
 GGPOErrorCode
 synctest_IncrementFrame(SyncTestBackend *synctest)
-{  
+{
    sync_IncrementFrame(&synctest->_sync);
    gameinput_erase(&synctest->_current_input);
-   
+
    Log("End of frame(%d)...\n", sync_GetFrameCount(&synctest->_sync));
    synctest_EndLog(synctest);
 
@@ -212,7 +212,7 @@ synctest_BeginLog(SyncTestBackend *synctest, int saving)
            sync_GetFrameCount(&synctest->_sync),
            synctest->_rollingback ? "replay" : "original");
 
-    fopen_s(&synctest->_logfp, filename, "w");
+   synctest->_logfp = fopen(filename, "w");
 }
 
 void

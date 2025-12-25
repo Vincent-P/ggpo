@@ -34,7 +34,7 @@ void sync_ctor(Sync* sync, UdpMsg_connect_status* connect_status)
     memset(sync, 0, sizeof(Sync));
 	sync->_local_connect_status = connect_status;
 	sync->_input_queues = NULL;
-        
+
    sync->_framecount = 0;
    sync->_last_confirmed_frame = -1;
    sync->_max_prediction_frames = 0;
@@ -69,7 +69,7 @@ void sync_Init(Sync* sync, sync_Config* config)
 }
 
 void sync_SetLastConfirmedFrame(Sync* sync, int frame)
-{   
+{
    sync->_last_confirmed_frame = frame;
    if (sync->_last_confirmed_frame > 0) {
       for (int i = 0; i < sync->_config.num_players; i++) {
@@ -85,7 +85,7 @@ void sync_SetFrameDelay(Sync* sync, int queue, int delay)
 
 bool sync_AddLocalInput(Sync* sync, int queue, GameInput* input)
 {
-   int frames_behind = sync->_framecount - sync->_last_confirmed_frame; 
+   int frames_behind = sync->_framecount - sync->_last_confirmed_frame;
    if (sync->_framecount >= sync->_max_prediction_frames && frames_behind >= sync->_max_prediction_frames) {
       Log("Rejecting input from emulator: reached prediction barrier.\n");
       return false;
@@ -172,7 +172,7 @@ void sync_AdjustSimulation(Sync* sync, int seek_to)
    ASSERT(sync->_framecount == seek_to);
 
    /*
-    * Advance frame by frame (stuffing notifications back to 
+    * Advance frame by frame (stuffing notifications back to
     * the master).
     */
    _sync_ResetPrediction(sync, sync->_framecount);
@@ -183,7 +183,7 @@ void sync_AdjustSimulation(Sync* sync, int seek_to)
 
    sync->_rollingback = false;
 
-   Log("---\n");   
+   Log("---\n");
 }
 
 void sync_IncrementFrame(Sync* sync)
@@ -262,7 +262,7 @@ static int _sync_FindSavedFrameIndex(Sync* sync, int frame)
       }
    }
    if (i == count) {
-      ASSERT(FALSE);
+      ASSERT(false);
    }
    return i;
 }
@@ -304,7 +304,3 @@ static void _sync_ResetPrediction(Sync* sync, int frameNumber)
       input_queue_ResetPrediction(&sync->_input_queues[i], frameNumber);
    }
 }
-
-
-
-

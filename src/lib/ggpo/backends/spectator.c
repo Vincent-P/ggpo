@@ -32,13 +32,13 @@ void spec_ctor(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
 	int num_players,
 	int input_size,
 	char* hostip,
-	u_short hostport)
+	uint16 hostport)
 {
 
 	spec->_num_players = num_players;
 	spec->_input_size = input_size;
 	spec->_next_input_to_send = 0;
-	
+
 	spec->_header._session_type = SESSION_SPECTATOR;
 	spec->_header._callbacks = *cb;
 	spec->_synchronizing = true;
@@ -198,4 +198,3 @@ static void SpectatorBackend_OnMsg(sockaddr_in*from, UdpMsg* msg, int len, void*
 		UdpProtocol_OnMsg(&backend->_host, msg, len);
 	}
 }
-

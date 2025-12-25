@@ -69,7 +69,7 @@ void UdpProtocol_ctor(UdpProtocol* protocol)
 	protocol->_oop_percent = Platform_GetConfigInt("ggpo.oop.percent");
 
 	timesync_init(&protocol->_timesync);
-	
+
 	ring_ctor(&protocol->_send_queue_ring, ARRAY_SIZE(protocol->_send_queue));
 	ring_ctor(&protocol->_pending_output_ring, ARRAY_SIZE(protocol->_pending_output));
 	ring_ctor(&protocol->_event_queue_ring, ARRAY_SIZE(protocol->_event_queue));
@@ -412,7 +412,7 @@ void UdpProtocol_Log(UdpProtocol *protocol, const char* fmt, ...)
 	size_t offset;
 	va_list args;
 
-	sprintf_s(buf, ARRAY_SIZE(buf), "udpproto%d | ", protocol->_queue);
+	snprintf(buf, ARRAY_SIZE(buf), "udpproto%d | ", protocol->_queue);
 	offset = strlen(buf);
 	va_start(args, fmt);
 	vsnprintf(buf + offset, ARRAY_SIZE(buf) - offset - 1, fmt, args);
@@ -448,7 +448,7 @@ void UdpProtocol_LogMsg(UdpProtocol *protocol, const char* prefix, UdpMsg* msg)
 		UdpProtocol_Log(protocol, "%s input ack.\n", prefix);
 		break;
 	default:
-		ASSERT(FALSE && "Unknown UdpMsg type.");
+		ASSERT(false && "Unknown UdpMsg type.");
 	}
 }
 
@@ -463,7 +463,7 @@ void UdpProtocol_LogEvent(UdpProtocol *protocol, const char* prefix, const udp_p
 
 bool UdpProtocol_OnInvalid(UdpProtocol *protocol, UdpMsg* msg, int len)
 {
-	ASSERT(FALSE && "Invalid msg in UdpProtocol");
+	ASSERT(false && "Invalid msg in UdpProtocol");
 	return false;
 }
 

@@ -27,12 +27,14 @@
 #include "backends/spectator.h"
 #include "ggponet.h"
 
+#if defined(_WINDOWS)
 BOOL WINAPI
 DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
    srand(Platform_GetCurrentTimeMS() + Platform_GetProcessID());
    return TRUE;
 }
+#endif
 
 void
 ggpo_log(GGPOSession *ggpo, const char *fmt, ...)
@@ -300,4 +302,3 @@ GGPOErrorCode ggpo_start_spectating(GGPOSession **session,
 	*session = (GGPOSession*)spec;
     return GGPO_OK;
 }
-

@@ -74,13 +74,13 @@ input_queue_DiscardConfirmedFrames(InputQueue* queue, int frame)
       frame = MIN(frame, queue->_last_frame_requested);
    }
 
-   Log("discarding confirmed frames up to %d (last_added:%d length:%d [head:%d tail:%d]).\n", 
+   Log("discarding confirmed frames up to %d (last_added:%d length:%d [head:%d tail:%d]).\n",
        frame, queue->_last_added_frame, queue->_length, queue->_head, queue->_tail);
    if (frame >= queue->_last_added_frame) {
       queue->_tail = queue->_head;
    } else {
       int offset = frame - queue->_inputs[queue->_tail].frame + 1;
-      
+
       Log("difference of %d frames.\n", offset);
       ASSERT(offset >= 0);
 
@@ -112,7 +112,7 @@ bool
 input_queue_GetConfirmedInput(InputQueue* queue, int requested_frame, GameInput *input)
 {
    ASSERT(queue->_first_incorrect_frame == GAMEINPUT_NULL_FRAME || requested_frame < queue->_first_incorrect_frame);
-   int offset = requested_frame % INPUT_QUEUE_LENGTH; 
+   int offset = requested_frame % INPUT_QUEUE_LENGTH;
    if (queue->_inputs[offset].frame != requested_frame) {
       return false;
    }
@@ -195,7 +195,7 @@ void input_queue_AddInput(InputQueue* queue, GameInput *input)
    Log("adding input frame number %d to queue.\n", input->frame);
 
    /*
-    * These next two lines simply verify that inputs are passed in 
+    * These next two lines simply verify that inputs are passed in
     * sequentially by the user, regardless of frame delay.
     */
    ASSERT(queue->_last_user_added_frame == GAMEINPUT_NULL_FRAME ||
@@ -210,7 +210,7 @@ void input_queue_AddInput(InputQueue* queue, GameInput *input)
    if (new_frame != GAMEINPUT_NULL_FRAME) {
       input_queue_AddDelayedInputToQueue(queue, input, new_frame);
    }
-   
+
    /*
     * Update the frame number for the input.  This will also set the
     * frame to GAMEINPUT_NULL_FRAME for frames that get dropped (by
@@ -232,7 +232,7 @@ input_queue_AddDelayedInputToQueue(InputQueue* queue, GameInput *input, int fram
 
    /*
     * Add the frame to the back of the queue
-    */ 
+    */
    queue->_inputs[queue->_head] = *input;
    queue->_inputs[queue->_head].frame = frame_number;
    queue->_head = (queue->_head + 1) % INPUT_QUEUE_LENGTH;
@@ -317,7 +317,7 @@ input_queue_Log(InputQueue* queue, const char *fmt, ...)
    size_t offset;
    va_list args;
 
-   offset = sprintf_s(buf, ARRAY_SIZE(buf), "input q%d | ", queue->_id);
+   offset = snprintf(buf, ARRAY_SIZE(buf), "input q%d | ", queue->_id);
    va_start(args, fmt);
    vsnprintf(buf + offset, ARRAY_SIZE(buf) - offset - 1, fmt, args);
    buf[ARRAY_SIZE(buf)-1] = '\0';
