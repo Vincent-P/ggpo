@@ -8,7 +8,7 @@ REM           Press 'D' to fire
 REM           Press 'P' to show performance monitor
 REM           Shift to strafe
 
-pushd ..\build\bin\x64\Debug
+pushd ..\build\bin\Debug
 del *.log
 
 :: no spectators
