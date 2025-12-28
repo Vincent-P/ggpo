@@ -242,12 +242,12 @@ ggpo_close_session(GGPOSession *ggpo)
    }
    GGPOSessionHeader* header = (GGPOSessionHeader*)ggpo;
    switch (header->_session_type) {
-   case SESSION_P2P: p2p_dtor((Peer2PeerBackend*)ggpo);
-   case SESSION_SPECTATOR: spec_dtor((SpectatorBackend*)ggpo);
-   case SESSION_SYNCTEST: synctest_dtor((SyncTestBackend*)ggpo);
+   case SESSION_P2P: p2p_dtor((Peer2PeerBackend*)ggpo); break;
+   case SESSION_SPECTATOR: spec_dtor((SpectatorBackend*)ggpo); break;
+   case SESSION_SYNCTEST: synctest_dtor((SyncTestBackend*)ggpo); break;
    }
    free(ggpo);
-   return GGPO_ERRORCODE_INVALID_SESSION;
+   return GGPO_OK;
 }
 
 GGPOErrorCode

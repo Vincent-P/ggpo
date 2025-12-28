@@ -15,9 +15,9 @@
 #include "types.h"
 
 
-typedef DWORD ProcessID;
+typedef uint64 ProcessID;
 
-   inline ProcessID Platform_GetProcessID() { return GetCurrentProcessId(); }
+inline ProcessID Platform_GetProcessID() { return (ProcessID)GetCurrentProcessId(); }
    inline void Platform_AssertFailed(char *msg) { MessageBoxA(NULL, msg, "GGPO Assertion Failed", MB_OK | MB_ICONEXCLAMATION); }
    inline uint32 Platform_GetCurrentTimeMS() { return timeGetTime(); }
    int Platform_GetConfigInt(const char* name);

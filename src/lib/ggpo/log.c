@@ -28,11 +28,15 @@ void Log(const char *fmt, ...)
 
 void Logv(const char *fmt, va_list args)
 {
+    char logbuf2[256] = { 0 };
+    vsnprintf(logbuf2, 256, fmt, args);
+    OutputDebugStringA(logbuf2);
+
    if (!Platform_GetConfigBool("ggpo.log") || Platform_GetConfigBool("ggpo.log.ignore")) {
       return;
    }
    if (!logfile) {
-      snprintf(logbuf, ARRAY_SIZE(logbuf), "log-%u.log", Platform_GetProcessID());
+      snprintf(logbuf, ARRAY_SIZE(logbuf), "log-%llu.log", Platform_GetProcessID());
       logfile = fopen(logbuf, "w");
    }
    LogvFile(logfile, fmt, args);

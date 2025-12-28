@@ -82,7 +82,7 @@ typedef enum udp_protocol_State udp_protocol_State;
 struct udp_protocol_QueueEntry
 {
 		int         queue_time;
-		sockaddr_in dest_addr;
+		conn_Address dest_addr;
 		UdpMsg* msg;
 };
 typedef struct udp_protocol_QueueEntry udp_protocol_QueueEntry;
@@ -93,7 +93,7 @@ struct UdpProtocol
 	 * Network transmission information
 	 */
 	Udp* _udp;
-	sockaddr_in    _peer_addr;
+	conn_Address    _peer_addr;
 	uint16         _magic_number;
 	int            _queue;
 	uint16         _remote_magic_number;
@@ -102,7 +102,7 @@ struct UdpProtocol
 	int            _oop_percent;
 	struct {
 		int         send_time;
-		sockaddr_in dest_addr;
+		conn_Address dest_addr;
 		UdpMsg* msg;
 	}              _oo_packet;
 	RingBuffer _send_queue_ring;
@@ -181,7 +181,7 @@ typedef struct UdpProtocol UdpProtocol;
 	bool UdpProtocol_OnLoopPoll(UdpProtocol *protocol);
 
 
-	void UdpProtocol_Init(UdpProtocol *protocol, Udp* udp, int queue, char* ip, u_short port, UdpMsg_connect_status* status);
+	void UdpProtocol_Init(UdpProtocol *protocol, Udp* udp, int queue, conn_Address addr, UdpMsg_connect_status* status);
 
 	void UdpProtocol_Synchronize(UdpProtocol *protocol);
 	bool UdpProtocol_GetPeerConnectStatus(UdpProtocol *protocol, int id, int* frame);
@@ -190,7 +190,7 @@ typedef struct UdpProtocol UdpProtocol;
 	inline bool UdpProtocol_IsRunning(UdpProtocol *protocol) { return protocol->_current_state == UdpProtocol_Running; }
 	void UdpProtocol_SendInput(UdpProtocol *protocol, GameInput* input);
 	void UdpProtocol_SendInputAck(UdpProtocol *protocol);
-	bool UdpProtocol_HandlesMsg(UdpProtocol *protocol, sockaddr_in* from, UdpMsg* msg);
+	bool UdpProtocol_HandlesMsg(UdpProtocol *protocol, conn_Address from, UdpMsg* msg);
 	void UdpProtocol_OnMsg(UdpProtocol *protocol, UdpMsg* msg, int len);
 	void UdpProtocol_Disconnect(UdpProtocol *protocol);
 

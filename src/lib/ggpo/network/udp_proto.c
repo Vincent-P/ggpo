@@ -83,17 +83,17 @@ void UdpProtocol_dtor(UdpProtocol* protocol)
 void UdpProtocol_Init(UdpProtocol* protocol,
 	Udp* udp,
 	int queue,
-	char* ip,
-	u_short port,
+	conn_Address addr,
 	UdpMsg_connect_status* status)
 {
 	protocol->_udp = udp;
 	protocol->_queue = queue;
 	protocol->_local_connect_status = status;
 
-	protocol->_peer_addr.sin_family = AF_INET;
-	protocol->_peer_addr.sin_port = htons(port);
-	inet_pton(AF_INET, ip, &protocol->_peer_addr.sin_addr.s_addr);
+	protocol->_peer_addr = addr;
+	// protocol->_peer_addr.sin_family = AF_INET;
+	// protocol->_peer_addr.sin_port = htons(port);
+	// inet_pton(AF_INET, ip, &protocol->_peer_addr.sin_addr.s_addr);
 
 	do {
 		protocol->_magic_number = (uint16)rand();
@@ -263,7 +263,10 @@ bool UdpProtocol_OnLoopPoll(UdpProtocol* protocol)
 			protocol->_udp = NULL;
 			protocol->_shutdown_timeout = 0;
 		}
+		break;
 
+	case UdpProtocol_Synchronzied:
+		break;
 	}
 
 
@@ -299,13 +302,14 @@ void UdpProtocol_SendMsg(UdpProtocol* protocol, UdpMsg* msg)
 	UdpProtocol_PumpSendQueue(protocol);
 }
 
-bool UdpProtocol_HandlesMsg(UdpProtocol* protocol, sockaddr_in* from, UdpMsg* msg)
+bool UdpProtocol_HandlesMsg(UdpProtocol* protocol, conn_Address from, UdpMsg* msg)
 {
 	if (!protocol->_udp) {
 		return false;
 	}
-	return protocol->_peer_addr.sin_addr.S_un.S_addr == from->sin_addr.S_un.S_addr &&
-		protocol->_peer_addr.sin_port == from->sin_port;
+	return conn_addr_is_equal(protocol->_peer_addr, from);
+	//	return protocol->_peer_addr.sin_addr.S_un.S_addr == from->sin_addr.S_un.S_addr &&
+	//		protocol->_peer_addr.sin_port == from->sin_port;
 }
 
 
@@ -454,10 +458,8 @@ void UdpProtocol_LogMsg(UdpProtocol *protocol, const char* prefix, UdpMsg* msg)
 
 void UdpProtocol_LogEvent(UdpProtocol *protocol, const char* prefix, const udp_protocol_Event* evt)
 {
-	switch (evt->type) {
-	case UdpProtocol_Event_Synchronzied:
+	if (evt->type == UdpProtocol_Event_Synchronzied) {
 		UdpProtocol_Log(protocol, "%s (event: Synchronzied).\n", prefix);
-		break;
 	}
 }
 
@@ -728,10 +730,9 @@ void UdpProtocol_PumpSendQueue(UdpProtocol *protocol)
 			protocol->_oo_packet.dest_addr = entry.dest_addr;
 		}
 		else {
-			ASSERT(entry.dest_addr.sin_addr.s_addr);
+			ASSERT(entry.dest_addr);
 
-			udp_SendTo(protocol->_udp, (char*)entry.msg, udp_msg_PacketSize(entry.msg), 0,
-				(struct sockaddr*)&entry.dest_addr, sizeof entry.dest_addr);
+			udp_SendTo(protocol->_udp, (char*)entry.msg, udp_msg_PacketSize(entry.msg), 0, entry.dest_addr);
 
 			free(entry.msg);
 		}
@@ -740,7 +741,7 @@ void UdpProtocol_PumpSendQueue(UdpProtocol *protocol)
 	if (protocol->_oo_packet.msg && protocol->_oo_packet.send_time < Platform_GetCurrentTimeMS()) {
 		Log("sending rogue oop!");
 		udp_SendTo(protocol->_udp, (char*)protocol->_oo_packet.msg, udp_msg_PacketSize(protocol->_oo_packet.msg), 0,
-			(struct sockaddr*)&protocol->_oo_packet.dest_addr, sizeof protocol->_oo_packet.dest_addr);
+			   protocol->_oo_packet.dest_addr);
 
 		free(protocol->_oo_packet.msg);
 		protocol->_oo_packet.msg = NULL;

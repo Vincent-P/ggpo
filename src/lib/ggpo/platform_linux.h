@@ -19,8 +19,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <time.h>
+#include <stdint.h>
 
-typedef pid_t ProcessID;
+typedef uint64 ProcessID;
 
 inline int strncat_s(
    char *strDestination,
@@ -34,7 +35,14 @@ inline int strncat_s(
 	return errno;
 }
 
-inline ProcessID Platform_GetProcessID() { return getpid(); }
+inline void DebugBreak()
+{
+	__builtin_trap();
+}
+
+#define MAX_PATH 255
+
+inline ProcessID Platform_GetProcessID() { return (ProcessID)getpid(); }
 inline void Platform_AssertFailed(char *msg) {}
 uint32 Platform_GetCurrentTimeMS();
 int Platform_GetConfigInt(const char* name);

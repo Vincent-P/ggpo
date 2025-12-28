@@ -5,6 +5,7 @@
  * in the LICENSE file.
  */
 
+#if !defined(_WINDOWS)
 #include "types.h"
 #include "platform_linux.h"
 
@@ -25,3 +26,4 @@ uint32 Platform_GetCurrentTimeMS()
 
 int Platform_GetConfigInt(const char* name) { return 0; }
 bool Platform_GetConfigBool(const char* name) { return false; }
+#endif
