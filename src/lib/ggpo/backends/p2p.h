@@ -55,7 +55,16 @@ struct Peer2PeerBackend {
 typedef struct Peer2PeerBackend Peer2PeerBackend;
 
 
+#if defined(GGPO_STEAM)
+void p2p_ctor_steam(Peer2PeerBackend *p2p, GGPOSessionCallbacks *cb, const char *gamename, int local_channel, int num_players, int input_size);
+void p2p_AddRemotePlayerSteam(Peer2PeerBackend *p2p, uint64 steam_id, int queue);
+GGPOErrorCode p2p_AddSpectatorSteam(Peer2PeerBackend *p2p, uint64 steam_id);
+#else
 void p2p_ctor(Peer2PeerBackend *p2p, GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size);
+void p2p_AddRemotePlayer(Peer2PeerBackend *p2p, char *remoteip, uint16 reportport, int queue);
+GGPOErrorCode p2p_AddSpectator(Peer2PeerBackend *p2p, char *remoteip, uint16 reportport);
+#endif
+
 void p2p_dtor(Peer2PeerBackend *p2p);
 
 GGPOErrorCode p2p_DoPoll(Peer2PeerBackend *p2p, int timeout);
@@ -71,15 +80,13 @@ GGPOErrorCode p2p_SetDisconnectNotifyStart(Peer2PeerBackend *p2p, int timeout);
 
 GGPOErrorCode p2p_PlayerHandleToQueue(Peer2PeerBackend *p2p, GGPOPlayerHandle player, int *queue);
 inline GGPOPlayerHandle p2p_QueueToPlayerHandle(Peer2PeerBackend *p2p, int queue) { return (GGPOPlayerHandle)(queue + 1); }
-inline GGPOPlayerHandle p2p_QueueToSpectatorHandle(Peer2PeerBackend *p2p, int queue) { return (GGPOPlayerHandle)(queue + 1000); } /* out of range of the player array, basically */
+inline GGPOPlayerHandle p2p_QueueToSpectatorHandle(Peer2PeerBackend *p2p, int queue) { return (GGPOPlayerHandle)(queue + 1000); }
 void p2p_DisconnectPlayerQueue(Peer2PeerBackend *p2p, int queue, int syncto);
 void p2p_PollSyncEvents(Peer2PeerBackend *p2p);
 void p2p_PollUdpProtocolEvents(Peer2PeerBackend *p2p);
 void p2p_CheckInitialSync(Peer2PeerBackend *p2p);
 int p2p_Poll2Players(Peer2PeerBackend *p2p, int current_frame);
 int p2p_PollNPlayers(Peer2PeerBackend *p2p, int current_frame);
-void p2p_AddRemotePlayer(Peer2PeerBackend *p2p, char *remoteip, uint16 reportport, int queue);
-GGPOErrorCode p2p_AddSpectator(Peer2PeerBackend *p2p, char *remoteip, uint16 reportport);
 inline void p2p_OnSyncEvent(Peer2PeerBackend *p2p, sync_Event *e) { }
 void p2p_OnUdpProtocolEvent(Peer2PeerBackend *p2p, udp_protocol_Event *e, GGPOPlayerHandle handle);
 void p2p_OnUdpProtocolPeerEvent(Peer2PeerBackend *p2p, udp_protocol_Event *e, int queue);

@@ -31,6 +31,8 @@ static void p2p_OnMsg(conn_Address from, UdpMsg* msg, int len, void* user_data);
 
 
 
+#ifndef GGPO_STEAM
+
 void p2p_ctor(Peer2PeerBackend *p2p, GGPOSessionCallbacks *cb, const char *gamename, uint16 localport, int num_players, int input_size)
 {
 	p2p->_num_players = num_players;
@@ -81,6 +83,42 @@ void p2p_ctor(Peer2PeerBackend *p2p, GGPOSessionCallbacks *cb, const char *gamen
 	p2p->_header._callbacks.begin_game(gamename);
 }
 
+void p2p_AddRemotePlayer(Peer2PeerBackend *p2p, char* ip, uint16 port, int queue)
+{
+	p2p->_synchronizing = true;
+
+	ASSERT(conn_support_ip_port());
+	conn_Address peer_addr = conn_address_from_ip_port(ip, port);
+
+	UdpProtocol_Init(&p2p->_endpoints[queue], &p2p->_udp, queue, peer_addr, p2p->_local_connect_status);
+	UdpProtocol_SetDisconnectTimeout(&p2p->_endpoints[queue], p2p->_disconnect_timeout);
+	UdpProtocol_SetDisconnectNotifyStart(&p2p->_endpoints[queue], p2p->_disconnect_notify_start);
+	UdpProtocol_Synchronize(&p2p->_endpoints[queue]);
+}
+
+GGPOErrorCode p2p_AddSpectator(Peer2PeerBackend *p2p, char* ip, uint16 port)
+{
+	if (p2p->_num_spectators == GGPO_MAX_SPECTATORS) {
+		return GGPO_ERRORCODE_TOO_MANY_SPECTATORS;
+	}
+	if (!p2p->_synchronizing) {
+		return GGPO_ERRORCODE_INVALID_REQUEST;
+	}
+	int queue = p2p->_num_spectators++;
+
+	ASSERT(conn_support_ip_port());
+	conn_Address peer_addr = conn_address_from_ip_port(ip, port);
+
+	UdpProtocol_Init(&p2p->_spectators[queue], &p2p->_udp, queue + 1000, peer_addr, p2p->_local_connect_status);
+	UdpProtocol_SetDisconnectTimeout(&p2p->_spectators[queue], p2p->_disconnect_timeout);
+	UdpProtocol_SetDisconnectNotifyStart(&p2p->_spectators[queue], p2p->_disconnect_notify_start);
+	UdpProtocol_Synchronize(&p2p->_spectators[queue]);
+
+	return GGPO_OK;
+}
+
+#endif /* !GGPO_STEAM */
+
 void p2p_dtor(Peer2PeerBackend *p2p)
 {
 	for (int i = 0; i < p2p->_num_players; ++i) {
@@ -91,18 +129,77 @@ void p2p_dtor(Peer2PeerBackend *p2p)
 	udp_dtor(&p2p->_udp);
 }
 
-void
-p2p_AddRemotePlayer(Peer2PeerBackend *p2p, char* ip,
-	uint16 port,
-	int queue)
+#if defined(GGPO_STEAM)
+
+/*
+ * p2p_ctor_steam --
+ *
+ * Constructor for Steam Networking Messages sessions.
+ * Uses a virtual channel number instead of a UDP port.
+ */
+void p2p_ctor_steam(Peer2PeerBackend *p2p, GGPOSessionCallbacks *cb, const char *gamename, int local_channel, int num_players, int input_size)
 {
+	p2p->_num_players = num_players;
+	p2p->_input_size = input_size;
+	p2p->_disconnect_timeout = DEFAULT_DISCONNECT_TIMEOUT;
+	p2p->_disconnect_notify_start = DEFAULT_DISCONNECT_NOTIFY_START;
+	p2p->_num_spectators = 0;
+	p2p->_next_spectator_frame = 0;
+
+	sync_ctor(&p2p->_sync, p2p->_local_connect_status);
+	p2p->_header._session_type = SESSION_P2P;
+	p2p->_header._callbacks = *cb;
+	p2p->_synchronizing = true;
+	p2p->_next_recommended_sleep = 0;
+
 	/*
-	 * Start the state machine (xxx: no)
+	 * Initialize the synchronization layer
 	 */
+	sync_Config config = { 0 };
+	config.num_players = num_players;
+	config.input_size = input_size;
+	config.callbacks = p2p->_header._callbacks;
+	config.num_prediction_frames = MAX_PREDICTION_FRAMES;
+	sync_Init(&p2p->_sync, &config);
+
+	/*
+	 * Initialize the Steam Networking Messages layer.
+	 * local_channel is used as the virtual channel number.
+	 */
+	udp_ctor(&p2p->_udp);
+	udp_Init(&p2p->_udp, (uint16)local_channel, p2p_OnMsg, p2p);
+
+	p2p->_endpoints = calloc(p2p->_num_players, sizeof(UdpProtocol));
+	for (int i = 0; i < p2p->_num_players; ++i) {
+		UdpProtocol_ctor(&p2p->_endpoints[i]);
+	}
+	for (int i = 0; i < ARRAY_SIZE(p2p->_spectators); i++) {
+		UdpProtocol_ctor(&p2p->_spectators[i]);
+	}
+	memset(p2p->_local_connect_status, 0, sizeof(p2p->_local_connect_status));
+	for (int i = 0; i < ARRAY_SIZE(p2p->_local_connect_status); i++) {
+		p2p->_local_connect_status[i].last_frame = -1;
+	}
+
+	/*
+	 * Preload the ROM
+	 */
+	p2p->_header._callbacks.begin_game(gamename);
+}
+
+/*
+ * p2p_AddRemotePlayerSteam --
+ *
+ * Add a remote player identified by their Steam ID.
+ */
+void p2p_AddRemotePlayerSteam(Peer2PeerBackend *p2p, uint64 steam_id, int queue)
+{
 	p2p->_synchronizing = true;
 
-	ASSERT(conn_support_ip_port());
-	conn_Address peer_addr =  conn_address_from_ip_port(ip, port);
+	/* Register as a known peer for auto-accept in the connection layer */
+	conn_add_known_peer(steam_id);
+
+	conn_Address peer_addr = conn_address_from_steam_id(steam_id);
 
 	UdpProtocol_Init(&p2p->_endpoints[queue], &p2p->_udp, queue, peer_addr, p2p->_local_connect_status);
 	UdpProtocol_SetDisconnectTimeout(&p2p->_endpoints[queue], p2p->_disconnect_timeout);
@@ -110,22 +207,23 @@ p2p_AddRemotePlayer(Peer2PeerBackend *p2p, char* ip,
 	UdpProtocol_Synchronize(&p2p->_endpoints[queue]);
 }
 
-GGPOErrorCode p2p_AddSpectator(Peer2PeerBackend *p2p, char* ip,
-	uint16 port)
+/*
+ * p2p_AddSpectatorSteam --
+ *
+ * Add a spectator identified by their Steam ID.
+ */
+GGPOErrorCode p2p_AddSpectatorSteam(Peer2PeerBackend *p2p, uint64 steam_id)
 {
 	if (p2p->_num_spectators == GGPO_MAX_SPECTATORS) {
 		return GGPO_ERRORCODE_TOO_MANY_SPECTATORS;
 	}
-	/*
-	 * Currently, we can only add spectators before the game starts.
-	 */
 	if (!p2p->_synchronizing) {
 		return GGPO_ERRORCODE_INVALID_REQUEST;
 	}
 	int queue = p2p->_num_spectators++;
 
-	ASSERT(conn_support_ip_port());
-	conn_Address peer_addr =  conn_address_from_ip_port(ip, port);
+	conn_add_known_peer(steam_id);
+	conn_Address peer_addr = conn_address_from_steam_id(steam_id);
 
 	UdpProtocol_Init(&p2p->_spectators[queue], &p2p->_udp, queue + 1000, peer_addr, p2p->_local_connect_status);
 	UdpProtocol_SetDisconnectTimeout(&p2p->_spectators[queue], p2p->_disconnect_timeout);
@@ -134,6 +232,8 @@ GGPOErrorCode p2p_AddSpectator(Peer2PeerBackend *p2p, char* ip,
 
 	return GGPO_OK;
 }
+
+#endif /* GGPO_STEAM */
 
 GGPOErrorCode
 p2p_DoPoll(Peer2PeerBackend *p2p, int timeout)
@@ -293,7 +393,11 @@ p2p_AddPlayer(Peer2PeerBackend *p2p, GGPOPlayer* player,
 	GGPOPlayerHandle* handle)
 {
 	if (player->type == GGPO_PLAYERTYPE_SPECTATOR) {
+#if defined(GGPO_STEAM)
+		return p2p_AddSpectatorSteam(p2p, player->u.steam_remote.steam_id);
+#else
 		return p2p_AddSpectator(p2p, player->u.remote.ip_address, player->u.remote.port);
+#endif
 	}
 
 	int queue = player->player_num - 1;
@@ -303,7 +407,11 @@ p2p_AddPlayer(Peer2PeerBackend *p2p, GGPOPlayer* player,
 	*handle = p2p_QueueToPlayerHandle(p2p, queue);
 
 	if (player->type == GGPO_PLAYERTYPE_REMOTE) {
+#if defined(GGPO_STEAM)
+		p2p_AddRemotePlayerSteam(p2p, player->u.steam_remote.steam_id, queue);
+#else
 		p2p_AddRemotePlayer(p2p, player->u.remote.ip_address, player->u.remote.port, queue);
+#endif
 	}
 	return GGPO_OK;
 }

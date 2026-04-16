@@ -26,6 +26,8 @@
 
 static void SpectatorBackend_OnMsg(conn_Address from, UdpMsg* msg, int len, void* user_data);
 
+#ifndef GGPO_STEAM
+
 void spec_ctor(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
 	const char* gamename,
 	uint16 localport,
@@ -68,6 +70,59 @@ void spec_ctor(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
 	 */
 	spec->_header._callbacks.begin_game(gamename);
 }
+
+#endif /* !GGPO_STEAM */
+
+#if defined(GGPO_STEAM)
+
+/*
+ * spec_ctor_steam --
+ *
+ * Constructor for spectator sessions using Steam Networking Messages.
+ * The host is identified by their Steam ID instead of IP:port.
+ */
+void spec_ctor_steam(SpectatorBackend* spec, GGPOSessionCallbacks* cb,
+	const char* gamename,
+	int local_channel,
+	int num_players,
+	int input_size,
+	uint64 host_steam_id)
+{
+	spec->_num_players = num_players;
+	spec->_input_size = input_size;
+	spec->_next_input_to_send = 0;
+
+	spec->_header._session_type = SESSION_SPECTATOR;
+	spec->_header._callbacks = *cb;
+	spec->_synchronizing = true;
+
+	for (int i = 0; i < ARRAY_SIZE(spec->_inputs); i++) {
+		spec->_inputs[i].frame = -1;
+	}
+
+	/*
+	 * Initialize the Steam Networking Messages layer
+	 */
+	udp_ctor(&spec->_udp);
+	udp_Init(&spec->_udp, (uint16)local_channel, SpectatorBackend_OnMsg, spec);
+
+	/*
+	 * Init the host endpoint using Steam ID
+	 */
+	conn_add_known_peer(host_steam_id);
+	conn_Address peer_addr = conn_address_from_steam_id(host_steam_id);
+
+	UdpProtocol_ctor(&spec->_host);
+	UdpProtocol_Init(&spec->_host, &spec->_udp, 0, peer_addr, NULL);
+	UdpProtocol_Synchronize(&spec->_host);
+
+	/*
+	 * Preload the ROM
+	 */
+	spec->_header._callbacks.begin_game(gamename);
+}
+
+#endif /* GGPO_STEAM */
 
 void spec_dtor(SpectatorBackend* spec)
 {

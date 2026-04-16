@@ -13,6 +13,8 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 // On windows, export at build time and import at runtime.
 // ELF systems don't need an explicit export/import.
@@ -78,10 +80,16 @@ typedef struct GGPOPlayer {
       struct {
           char empty;
       } local;
+#if defined(GGPO_STEAM)
+      struct {
+         uint64_t         steam_id;
+      } steam_remote;
+#else
       struct {
          char           ip_address[32];
          unsigned short port;
       } remote;
+#endif
    } u;
 } GGPOPlayer;
 
@@ -318,14 +326,28 @@ typedef struct GGPONetworkStats {
  *
  * input_size - The size of the game inputs which will be passsed to ggpo_add_local_input.
  *
- * local_port - The port GGPO should bind to for UDP traffic.
+ * When GGPO_STEAM is NOT defined:
+ *   local_port - The port GGPO should bind to for UDP traffic.
+ *
+ * When GGPO_STEAM IS defined:
+ *   local_channel - The virtual channel number for Steam Networking Messages routing.
+ *   Use 0 for the default channel. Unlike the IP-based session, this is not a network port.
  */
+#if defined(GGPO_STEAM)
 GGPO_API GGPOErrorCode ggpo_start_session(GGPOSession **session,
-                                                  GGPOSessionCallbacks *cb,
-                                                  const char *game,
-                                                  int num_players,
-                                                  int input_size,
-                                                  unsigned short localport);
+                                                   GGPOSessionCallbacks *cb,
+                                                   const char *game,
+                                                   int num_players,
+                                                   int input_size,
+                                                   int local_channel);
+#else
+GGPO_API GGPOErrorCode ggpo_start_session(GGPOSession **session,
+                                                   GGPOSessionCallbacks *cb,
+                                                   const char *game,
+                                                   int num_players,
+                                                   int input_size,
+                                                   unsigned short localport);
+#endif
 
 
 /*
@@ -393,21 +415,35 @@ GGPO_API GGPOErrorCode ggpo_start_synctest(GGPOSession **session,
  *
  * input_size - The size of the game inputs which will be passsed to ggpo_add_local_input.
  *
- * local_port - The port GGPO should bind to for UDP traffic.
+ * When GGPO_STEAM is NOT defined:
+ *   local_port - The port GGPO should bind to for UDP traffic.
+ *   host_ip - The IP address of the host who will serve you the inputs for the game.  Any
+ *             player partcipating in the session can serve as a host.
+ *   host_port - The port of the session on the host
  *
- * host_ip - The IP address of the host who will serve you the inputs for the game.  Any
- * player partcipating in the session can serve as a host.
- *
- * host_port - The port of the session on the host
+ * When GGPO_STEAM IS defined:
+ *   local_channel - The virtual channel number for Steam Networking Messages routing.
+ *   host_steam_id - The uint64 Steam ID of the host whose inputs you will receive.
+ *                   Any player participating in the session can serve as a host.
  */
+#if defined(GGPO_STEAM)
 GGPO_API GGPOErrorCode ggpo_start_spectating(GGPOSession **session,
-                                                     GGPOSessionCallbacks *cb,
-                                                     const char *game,
-                                                     int num_players,
-                                                     int input_size,
-                                                     unsigned short local_port,
-                                                     char *host_ip,
-                                                     unsigned short host_port);
+                                                      GGPOSessionCallbacks *cb,
+                                                      const char *game,
+                                                      int num_players,
+                                                      int input_size,
+                                                      int local_channel,
+                                                      uint64_t host_steam_id);
+#else
+GGPO_API GGPOErrorCode ggpo_start_spectating(GGPOSession **session,
+                                                      GGPOSessionCallbacks *cb,
+                                                      const char *game,
+                                                      int num_players,
+                                                      int input_size,
+                                                      unsigned short local_port,
+                                                      char *host_ip,
+                                                      unsigned short host_port);
+#endif
 
 /*
  * ggpo_close_session --
@@ -438,6 +474,11 @@ GGPO_API GGPOErrorCode ggpo_set_frame_delay(GGPOSession *,
  */
 GGPO_API GGPOErrorCode ggpo_idle(GGPOSession *,
                                          int timeout);
+
+
+#if defined(GGPO_STEAM)
+GGPO_API void ggpo_steam_callback(GGPOSession*, int callback_type, void *callback_data, int callback_datasize);
+#endif
 
 /*
  * ggpo_add_local_input --

@@ -59,6 +59,25 @@ ggpo_logv(GGPOSession *ggpo, const char *fmt, va_list args)
    }
 }
 
+#if defined(GGPO_STEAM)
+GGPOErrorCode
+ggpo_start_session(GGPOSession **session,
+                   GGPOSessionCallbacks *cb,
+                   const char *game,
+                   int num_players,
+                   int input_size,
+                   int local_channel)
+{
+    void* p2p = calloc(sizeof(Peer2PeerBackend), 1);
+    p2p_ctor_steam((Peer2PeerBackend*)p2p, cb,
+        game,
+        local_channel,
+        num_players,
+        input_size);
+    *session = (GGPOSession*)p2p;
+    return GGPO_OK;
+}
+#else
 GGPOErrorCode
 ggpo_start_session(GGPOSession **session,
                    GGPOSessionCallbacks *cb,
@@ -73,9 +92,10 @@ ggpo_start_session(GGPOSession **session,
         localport,
         num_players,
         input_size);
-   *session = (GGPOSession*)p2p;
-   return GGPO_OK;
+    *session = (GGPOSession*)p2p;
+    return GGPO_OK;
 }
+#endif
 
 GGPOErrorCode
 ggpo_add_player(GGPOSession *ggpo,
@@ -282,6 +302,26 @@ ggpo_set_disconnect_notify_start(GGPOSession *ggpo, int timeout)
    return GGPO_ERRORCODE_INVALID_SESSION;
 }
 
+#if defined(GGPO_STEAM)
+GGPOErrorCode ggpo_start_spectating(GGPOSession **session,
+                                    GGPOSessionCallbacks *cb,
+                                    const char *game,
+                                    int num_players,
+                                    int input_size,
+                                    int local_channel,
+                                    uint64_t host_steam_id)
+{
+    void* spec = calloc(sizeof(SpectatorBackend), 1);
+    spec_ctor_steam((SpectatorBackend*)spec, cb,
+                    game,
+                    local_channel,
+                    num_players,
+                    input_size,
+                    host_steam_id);
+    *session = (GGPOSession*)spec;
+    return GGPO_OK;
+}
+#else
 GGPOErrorCode ggpo_start_spectating(GGPOSession **session,
                                     GGPOSessionCallbacks *cb,
                                     const char *game,
@@ -291,14 +331,15 @@ GGPOErrorCode ggpo_start_spectating(GGPOSession **session,
                                     char *host_ip,
                                     unsigned short host_port)
 {
-	void* spec = calloc(sizeof(SpectatorBackend), 1);
-	spec_ctor((SpectatorBackend*)spec, cb,
-                                                 game,
-                                                 local_port,
-                                                 num_players,
-                                                 input_size,
-                                                 host_ip,
-                                                 host_port);
-	*session = (GGPOSession*)spec;
+    void* spec = calloc(sizeof(SpectatorBackend), 1);
+    spec_ctor((SpectatorBackend*)spec, cb,
+                                                  game,
+                                                  local_port,
+                                                  num_players,
+                                                  input_size,
+                                                  host_ip,
+                                                  host_port);
+    *session = (GGPOSession*)spec;
     return GGPO_OK;
 }
+#endif

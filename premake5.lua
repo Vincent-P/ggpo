@@ -7,6 +7,11 @@ workspace "ggpo"
       defines { "_WINDOWS" }
    architecture "x86_64"
 
+newoption {
+   trigger = "steam",
+   description = "Enable steam API"
+}
+
 project "ggpo"
    kind "StaticLib"
    language "C"
@@ -16,7 +21,7 @@ project "ggpo"
    -- targetdir "bin/%{cfg.buildcfg}"
 
    files { "src/include/**.h", "src/lib/ggpo/**.h", "src/lib/ggpo/**.c" }
-   includedirs { "src/lib/ggpo", "src/include" }
+   includedirs { "src/lib/ggpo", "src/include", "thirdparty/include" }
 
    filter "configurations:Debug"
       defines { "DEBUG" }
@@ -26,6 +31,18 @@ project "ggpo"
       defines { "NDEBUG" }
       optimize "On"
 
+   filter { "options:steam" }
+      defines { "GGPO_STEAM" }
+      removefiles { "src/lib/ggpo/network/connection.c" }
+
+   filter { "not options:steam" }
+      removefiles { "src/lib/ggpo/network/connection_steam.c" }
+   filter { "options:steam", "system:Windows" }
+      libdirs { "thirdparty/bin/win64" }
+      links { "steam_api64" }
+   filter { "options:steam", "system:linux" }
+      libdirs { "thirdparty/bin/linux64" }
+      links { "steam_api64" }
 project "vectorwar"
    kind "WindowedApp"
    language "C++"
@@ -45,3 +62,12 @@ project "vectorwar"
    filter "configurations:Release"
       defines { "NDEBUG" }
       optimize "On"
+
+   filter { "options:steam" }
+      defines { "GGPO_STEAM" }
+   filter { "options:steam", "system:Windows" }
+      libdirs { "thirdparty/bin/win64" }
+      links { "steam_api64" }
+   filter { "options:steam", "system:linux" }
+      libdirs { "thirdparty/bin/linux64" }
+      links { "steam_api64" }
