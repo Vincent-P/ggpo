@@ -5,7 +5,7 @@ workspace "ggpo"
 
    filter "system:Windows"
       defines { "_WINDOWS" }
-   architecture "x86_64"
+      architecture "x86_64"
 
 newoption {
    trigger = "steam",
@@ -43,14 +43,16 @@ project "ggpo"
    filter { "options:steam", "system:linux" }
       libdirs { "thirdparty/bin/linux64" }
       links { "steam_api64" }
+
 project "vectorwar"
    kind "WindowedApp"
-   language "C++"
+   language "C"
+   cdialect "c11"
    warnings "High"
    -- fatalwarnings "All"
    -- targetdir "bin/%{cfg.buildcfg}"
 
-   files { "src/apps/vectorward/**.h", "src/apps/vectorwar/**.cpp" }
+   files { "src/apps/vectorwar/**.h", "src/apps/vectorwar/**.c", "src/apps/vectorwar/**.rc" }
    includedirs { "src/apps/vectorwar", "src/include" }
 
    links { "ggpo" }

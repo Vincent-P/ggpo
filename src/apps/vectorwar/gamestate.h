@@ -1,6 +1,8 @@
 #ifndef _GAMESTATE_H_
 #define _GAMESTATE_H_
 
+#include <windows.h>
+
 /*
  * gamestate.h --
  *
@@ -25,21 +27,21 @@
 
 #define MAX_SHIPS               4
 
-struct Position {
+typedef struct Position {
    double x, y;
-};
+} Position;
 
-struct Velocity {
+typedef struct Velocity {
    double dx, dy;
-};
+} Velocity;
 
-struct Bullet {
-   bool     active;
+typedef struct Bullet {
+   int      active;
    Position position;
    Velocity velocity;
-};
+} Bullet;
 
-struct Ship {
+typedef struct Ship {
    Position position;
    Velocity velocity;
    int      radius;
@@ -49,19 +51,19 @@ struct Ship {
    int      cooldown;
    Bullet   bullets[MAX_BULLETS];
    int      score;
-};
+} Ship;
 
-struct GameState {
-   void Init(HWND hwnd, int num_players);
-   void GetShipAI(int i, double *heading, double *thrust, int *fire);
-   void ParseShipInputs(int inputs, int i, double *heading, double *thrust, int *fire);
-   void MoveShip(int i, double heading, double thrust, int fire);
-   void Update(int inputs[], int disconnect_flags);
-
+typedef struct GameState {
    int         _framenumber;
    RECT        _bounds;
    int         _num_ships;
    Ship        _ships[MAX_SHIPS];
-};
+} GameState;
+
+void GameState_Init(GameState *gs, HWND hwnd, int num_players);
+void GameState_GetShipAI(GameState *gs, int i, double *heading, double *thrust, int *fire);
+void GameState_ParseShipInputs(GameState *gs, int inputs, int i, double *heading, double *thrust, int *fire);
+void GameState_MoveShip(GameState *gs, int i, double heading, double thrust, int fire);
+void GameState_Update(GameState *gs, int inputs[], int disconnect_flags);
 
 #endif

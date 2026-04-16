@@ -7,16 +7,14 @@
 /*
  * renderer.h --
  *
- * Abstract class used to render the game state.
- *
+ * Function pointer table used to render the game state.
+ * Replaces the C++ abstract Renderer class.
  */
 
-class Renderer {
-public:
-   virtual ~Renderer() { }
-
-   virtual void Draw(GameState &gs, NonGameState &ngs) = 0;
-   virtual void SetStatusText(const char *text) = 0;
-};
+typedef struct Renderer {
+   void (*Draw)(struct Renderer *self, GameState *gs, NonGameState *ngs);
+   void (*SetStatusText)(struct Renderer *self, const char *text);
+   void (*Destroy)(struct Renderer *self);
+} Renderer;
 
 #endif

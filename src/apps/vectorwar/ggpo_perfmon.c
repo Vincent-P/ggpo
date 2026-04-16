@@ -1,45 +1,46 @@
 #include <windows.h>
 #include <stdio.h>
+#include <math.h>
 #include "resource.h"
 #include "ggponet.h"
 #include "ggpo_perfmon.h"
 
 #define MAX_GRAPH_SIZE      4096
 #define MAX_FAIRNESS          20
-#define MAX_PLAYERS            4
+#define MAX_PLAYERS_PM         4
 
 static HWND _hwnd = NULL;
 static HWND _dialog = NULL;
-static HPEN _green_pen, _red_pen, _blue_pen, _yellow_pen, _grey_pen, _pink_pen, _fairness_pens[MAX_PLAYERS];
+static HPEN _green_pen, _red_pen, _blue_pen, _yellow_pen, _grey_pen, _pink_pen, _fairness_pens[MAX_PLAYERS_PM];
 static BOOL _shown = FALSE;
 static int _last_text_update_time = 0;
 
-int _num_players;
-int _first_graph_index = 0;
-int _graph_size = 0;
-int _ping_graph[MAX_PLAYERS][MAX_GRAPH_SIZE];
-int _local_fairness_graph[MAX_PLAYERS][MAX_GRAPH_SIZE];
-int _remote_fairness_graph[MAX_PLAYERS][MAX_GRAPH_SIZE];
-int _fairness_graph[MAX_GRAPH_SIZE];
-int _predict_queue_graph[MAX_GRAPH_SIZE];
-int _remote_queue_graph[MAX_GRAPH_SIZE];
-int _send_queue_graph[MAX_GRAPH_SIZE];
+static int _num_players;
+static int _first_graph_index = 0;
+static int _graph_size = 0;
+static int _ping_graph[MAX_PLAYERS_PM][MAX_GRAPH_SIZE];
+static int _local_fairness_graph[MAX_PLAYERS_PM][MAX_GRAPH_SIZE];
+static int _remote_fairness_graph[MAX_PLAYERS_PM][MAX_GRAPH_SIZE];
+static int _fairness_graph[MAX_GRAPH_SIZE];
+static int _predict_queue_graph[MAX_GRAPH_SIZE];
+static int _remote_queue_graph[MAX_GRAPH_SIZE];
+static int _send_queue_graph[MAX_GRAPH_SIZE];
 
 static void
 draw_graph(LPDRAWITEMSTRUCT di, HPEN pen, int graph[],
-           int count, int min, int max)
+           int count, int min_val, int max_val)
 {
    POINT pt[MAX_GRAPH_SIZE];
    int i, height = di->rcItem.bottom - di->rcItem.top;
    int width = di->rcItem.right - di->rcItem.left;
-   int range = max - min, offset = 0;
+   int range = max_val - min_val, offset = 0;
 
    if (count > width) {
       offset = count - width;
       count = width;
    }
    for (i = 0; i < count; i++) {
-      int value = graph[(_first_graph_index + offset + i) % MAX_GRAPH_SIZE] - min;
+      int value = graph[(_first_graph_index + offset + i) % MAX_GRAPH_SIZE] - min_val;
       int y = height - (value * height / range);
       pt[i].x = (width - count) + i;
       pt[i].y = y;
@@ -57,8 +58,9 @@ draw_grid(LPDRAWITEMSTRUCT di)
 static void
 draw_network_graph_control(LPDRAWITEMSTRUCT di)
 {
+   int i;
    draw_grid(di);
-   for (int i = 0; i < _num_players; i++) {
+   for (i = 0; i < _num_players; i++) {
       draw_graph(di, _green_pen, _ping_graph[i],          _graph_size, 0, 500);
    }
    draw_graph(di, _pink_pen,  _predict_queue_graph, _graph_size, 0, 14);
@@ -75,6 +77,7 @@ static void
 draw_fairness_graph_control(LPDRAWITEMSTRUCT di)
 {
    int midpoint = (di->rcItem.bottom - di->rcItem.top) / 2;
+   int i;
 
    draw_grid(di);
    SelectObject(di->hDC, _grey_pen);
@@ -82,16 +85,16 @@ draw_fairness_graph_control(LPDRAWITEMSTRUCT di)
    MoveToEx(di->hDC, di->rcItem.left, midpoint, NULL);
    LineTo(di->hDC, di->rcItem.right, midpoint);
 
-   for (int i = 0; i < _num_players; i++) {
+   for (i = 0; i < _num_players; i++) {
       draw_graph(di, _fairness_pens[i],    _remote_fairness_graph[i], _graph_size, -MAX_FAIRNESS, MAX_FAIRNESS);
-      //draw_graph(di, _blue_pen,   _local_fairness_graph,  _graph_size, -MAX_FAIRNESS, MAX_FAIRNESS);
    }
    draw_graph(di, _yellow_pen, _fairness_graph,        _graph_size, -MAX_FAIRNESS, MAX_FAIRNESS);
 }
 
 static INT_PTR CALLBACK
-ggpo_perfmon_dlgproc(HWND hwndDlg, UINT uMsg, WPARAM, LPARAM lParam)
+ggpo_perfmon_dlgproc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+   (void)wParam;
 
    switch (uMsg) {
    case WM_COMMAND:
@@ -135,7 +138,7 @@ ggpoutil_perfmon_init(HWND hwnd)
 }
 
 void
-ggpoutil_perfmon_exit()
+ggpoutil_perfmon_exit(void)
 {
    DeleteObject(_green_pen);
    DeleteObject(_red_pen);
@@ -146,7 +149,7 @@ ggpoutil_perfmon_exit()
 }
 
 void
-ggpoutil_perfmon_toggle()
+ggpoutil_perfmon_toggle(void)
 {
    if (!_dialog) {
       _dialog = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PERFMON),
@@ -159,8 +162,10 @@ ggpoutil_perfmon_toggle()
 void
 ggpoutil_perfmon_update(GGPOSession *ggpo, GGPOPlayerHandle players[], int num_players)
 {
-   GGPONetworkStats stats = { 0 };
-   int i;
+   GGPONetworkStats stats;
+   int i, j, now;
+
+   memset(&stats, 0, sizeof(stats));
 
    _num_players = num_players;
 
@@ -171,15 +176,7 @@ ggpoutil_perfmon_update(GGPOSession *ggpo, GGPOPlayerHandle players[], int num_p
       _first_graph_index = (_first_graph_index + 1) % MAX_GRAPH_SIZE;
    }
 
-   /*
-    * Random graphs
-    */
-   //_predict_queue_graph[i] = stats.network.predict_queue_len;
-   //_remote_queue_graph[i] = stats.network.recv_queue_len;
-   //_send_queue_graph[i] = stats.network.send_queue_len;
-
-
-   for (int j = 0; j < num_players; j++) {
+   for (j = 0; j < num_players; j++) {
       ggpo_get_network_stats(ggpo, players[j], &stats);
 
       /*
@@ -194,7 +191,7 @@ ggpoutil_perfmon_update(GGPOSession *ggpo, GGPOPlayerHandle players[], int num_p
       _remote_fairness_graph[j][i] = stats.timesync.remote_frames_behind;
       if (stats.timesync.local_frames_behind < 0 && stats.timesync.remote_frames_behind < 0) {
          /*
-          * Both think it's unfair (which, ironically, is fair).  Scale both and subtrace.
+          * Both think it's unfair (which, ironically, is fair).  Scale both and subtract.
           */
          _fairness_graph[i] = abs(abs(stats.timesync.local_frames_behind) - abs(stats.timesync.remote_frames_behind));
       } else if (stats.timesync.local_frames_behind > 0 && stats.timesync.remote_frames_behind > 0) {
@@ -210,7 +207,7 @@ ggpoutil_perfmon_update(GGPOSession *ggpo, GGPOPlayerHandle players[], int num_p
       }
    }
 
-   int now = timeGetTime();
+   now = timeGetTime();
    if (_dialog) {
       InvalidateRect(GetDlgItem(_dialog, IDC_FAIRNESS_GRAPH), NULL, FALSE);
       InvalidateRect(GetDlgItem(_dialog, IDC_NETWORK_GRAPH), NULL, FALSE);
@@ -233,4 +230,3 @@ ggpoutil_perfmon_update(GGPOSession *ggpo, GGPOPlayerHandle players[], int num_p
       }
    }
 }
-
